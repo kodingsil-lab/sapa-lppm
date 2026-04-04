@@ -11,6 +11,7 @@ $sourceRole = impersonatorRole() ?? $currentRole;
 $canImpersonateDosen = in_array($sourceRole, ['admin', 'kepala_lppm'], true);
 $canImpersonateKepala = $sourceRole === 'admin';
 $canChangeRole = $currentRole === 'admin';
+$canBulkDelete = $canChangeRole;
 $hasActiveKepala = (bool) ($hasActiveKepala ?? false);
 $filters = $userFilters ?? ['keyword' => '', 'faculty' => '', 'study_program' => ''];
 $filterOptions = $filterOptions ?? ['faculties' => [], 'study_programs' => []];
@@ -138,14 +139,23 @@ $filterOptions = $filterOptions ?? ['faculties' => [], 'study_programs' => []];
     </div>
 
     <div class="card dashboard-card mt-3 letters-table-card myletters-table-card">
-        <div class="card-header bg-white border-0 pt-3 px-3">
+        <div class="card-header bg-white border-0 pt-3 px-3 d-flex justify-content-between align-items-center gap-2 flex-wrap">
             <h6 class="mb-0"><i class="bi bi-table me-2"></i>Daftar Pengguna Dosen</h6>
+            <?php if ($canBulkDelete): ?>
+                <button type="button" id="btnBulkDeleteUsers" class="btn btn-sm btn-danger" disabled data-bs-toggle="modal" data-bs-target="#bulkDeleteUserModal">
+                    Hapus Terpilih
+                </button>
+            <?php endif; ?>
         </div>
         <div class="card-body pt-2">
-            <div class="activity-table-wrap myletters-table-wrap table-responsive">
-                <table id="dosenUsersTable" data-custom-pagination="10" class="table table-hover align-middle mb-0 w-100">
+            <form id="bulkDeleteUsersForm" method="post" action="<?= htmlspecialchars($basePath . '/pengguna/dosen/hapus-terpilih', ENT_QUOTES, 'UTF-8'); ?>">
+                <div class="activity-table-wrap myletters-table-wrap table-responsive">
+                    <table id="dosenUsersTable" data-custom-pagination="10" class="table table-hover align-middle mb-0 w-100">
                     <thead>
                         <tr>
+                            <?php if ($canBulkDelete): ?>
+                                <th style="width:42px;"><input type="checkbox" id="checkAllUsers"></th>
+                            <?php endif; ?>
                             <th>No.</th>
                             <th>Nama Dosen</th>
                             <th>NUPTK</th>
@@ -159,11 +169,14 @@ $filterOptions = $filterOptions ?? ['faculties' => [], 'study_programs' => []];
                     <tbody>
                         <?php if (empty($rows)): ?>
                             <tr>
-                                <td colspan="8" class="text-center text-muted py-3">Belum ada pengguna dosen terdaftar.</td>
+                                <td colspan="<?= $canBulkDelete ? '9' : '8'; ?>" class="text-center text-muted py-3">Belum ada pengguna dosen terdaftar.</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($rows as $index => $row): ?>
                                 <tr>
+                                    <?php if ($canBulkDelete): ?>
+                                        <td><input type="checkbox" name="user_ids[]" value="<?= (int) ($row['id'] ?? 0); ?>" class="user-checkbox"></td>
+                                    <?php endif; ?>
                                     <td><?= (int) $index + 1; ?></td>
                                     <td><?= htmlspecialchars((string) ($row['name'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td><?= htmlspecialchars((string) (($row['nuptk'] ?? '') !== '' ? $row['nuptk'] : '-'), ENT_QUOTES, 'UTF-8'); ?></td>
@@ -217,8 +230,9 @@ $filterOptions = $filterOptions ?? ['faculties' => [], 'study_programs' => []];
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </tbody>
-                </table>
-            </div>
+                    </table>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -264,6 +278,27 @@ $filterOptions = $filterOptions ?? ['faculties' => [], 'study_programs' => []];
     </div>
 </div>
 
+<?php if ($canBulkDelete): ?>
+    <div class="modal fade" id="bulkDeleteUserModal" tabindex="-1" aria-labelledby="bulkDeleteUserModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius:14px;">
+                <div class="modal-header" style="background:#f6f9ff;border-bottom:1px solid #e5edf8;">
+                    <h5 class="modal-title" id="bulkDeleteUserModalLabel" style="color:#123c6b;">Konfirmasi Hapus Pengguna</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-1">Anda yakin ingin menghapus pengguna dosen terpilih?</p>
+                    <div class="text-muted" style="font-size:13px;">Hanya pengguna yang belum terhubung ke data lain yang akan terhapus.</div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light-soft" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-danger" id="confirmBulkDeleteUsersBtn">Hapus</button>
+                </div>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var keywordInput = document.getElementById('userKeywordInput');
@@ -305,19 +340,19 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     var modal = document.getElementById('hapusDosenModal');
-    if (!modal) return;
+    if (modal) {
+        modal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            if (!button) return;
+            var userId = button.getAttribute('data-delete-id') || '';
+            var userName = button.getAttribute('data-delete-name') || '-';
 
-    modal.addEventListener('show.bs.modal', function (event) {
-        var button = event.relatedTarget;
-        if (!button) return;
-        var userId = button.getAttribute('data-delete-id') || '';
-        var userName = button.getAttribute('data-delete-name') || '-';
-
-        var idInput = document.getElementById('deleteUserId');
-        var nameText = document.getElementById('deleteUserName');
-        if (idInput) idInput.value = userId;
-        if (nameText) nameText.textContent = userName;
-    });
+            var idInput = document.getElementById('deleteUserId');
+            var nameText = document.getElementById('deleteUserName');
+            if (idInput) idInput.value = userId;
+            if (nameText) nameText.textContent = userName;
+        });
+    }
 
     var roleModalEl = document.getElementById('konfirmasiRoleModal');
     var roleModalTitle = document.getElementById('konfirmasiRoleModalLabel');
@@ -349,5 +384,58 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+    var checkAllUsers = document.getElementById('checkAllUsers');
+    var userCheckboxes = document.querySelectorAll('.user-checkbox');
+    var bulkDeleteUsersBtn = document.getElementById('btnBulkDeleteUsers');
+    var confirmBulkDeleteUsersBtn = document.getElementById('confirmBulkDeleteUsersBtn');
+    var bulkDeleteUsersForm = document.getElementById('bulkDeleteUsersForm');
+
+    var refreshBulkDeleteUsersState = function () {
+        var selectedCount = 0;
+        userCheckboxes.forEach(function (cb) {
+            if (cb.checked) {
+                selectedCount += 1;
+            }
+        });
+        if (bulkDeleteUsersBtn) {
+            bulkDeleteUsersBtn.disabled = selectedCount === 0;
+        }
+    };
+
+    if (checkAllUsers) {
+        checkAllUsers.addEventListener('change', function () {
+            userCheckboxes.forEach(function (cb) {
+                cb.checked = checkAllUsers.checked;
+            });
+            refreshBulkDeleteUsersState();
+        });
+    }
+
+    userCheckboxes.forEach(function (cb) {
+        cb.addEventListener('change', function () {
+            if (!cb.checked && checkAllUsers) {
+                checkAllUsers.checked = false;
+            }
+            if (checkAllUsers) {
+                var allChecked = true;
+                userCheckboxes.forEach(function (item) {
+                    if (!item.checked) {
+                        allChecked = false;
+                    }
+                });
+                checkAllUsers.checked = allChecked && userCheckboxes.length > 0;
+            }
+            refreshBulkDeleteUsersState();
+        });
+    });
+
+    if (confirmBulkDeleteUsersBtn && bulkDeleteUsersForm) {
+        confirmBulkDeleteUsersBtn.addEventListener('click', function () {
+            bulkDeleteUsersForm.submit();
+        });
+    }
+
+    refreshBulkDeleteUsersState();
 });
 </script>

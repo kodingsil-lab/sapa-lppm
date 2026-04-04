@@ -260,6 +260,84 @@ class UserController extends BaseController
         }
     }
 
+    public function bulkDeleteDosen(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirectToPath('pengguna');
+        }
+        if (authRole() !== 'admin') {
+            $this->redirectToPath('pengguna', ['error' => 'Aksi ini hanya tersedia untuk admin.']);
+        }
+
+        $ids = array_values(array_filter(
+            array_map('intval', (array) ($_POST['user_ids'] ?? [])),
+            static fn (int $id): bool => $id > 0
+        ));
+        $ids = array_values(array_unique($ids));
+
+        if ($ids === []) {
+            $this->redirectToPath('pengguna', ['error' => 'Pilih minimal satu pengguna dosen untuk dihapus.']);
+        }
+
+        $deletedCount = 0;
+        $blockedMessages = [];
+
+        foreach ($ids as $id) {
+            try {
+                $dosen = $this->userModel->findDosenById($id);
+                if ($dosen === null) {
+                    $blockedMessages[] = 'ID ' . $id . ' tidak ditemukan.';
+                    continue;
+                }
+
+                $blockers = $this->userModel->getDosenDeletionBlockers($id);
+                if ($blockers !== []) {
+                    $parts = [];
+                    if (!empty($blockers['surat_dibuat'])) {
+                        $parts[] = $blockers['surat_dibuat'] . ' surat dibuat';
+                    }
+                    if (!empty($blockers['surat_pemohon'])) {
+                        $parts[] = $blockers['surat_pemohon'] . ' surat diajukan';
+                    }
+                    if (!empty($blockers['proyek_penelitian'])) {
+                        $parts[] = $blockers['proyek_penelitian'] . ' proyek penelitian';
+                    }
+                    if (!empty($blockers['persetujuan'])) {
+                        $parts[] = $blockers['persetujuan'] . ' data persetujuan';
+                    }
+
+                    $detail = $parts !== [] ? ' (' . implode(', ', $parts) . ')' : '';
+                    $blockedMessages[] = (string) ($dosen['name'] ?? ('ID ' . $id)) . $detail;
+                    continue;
+                }
+
+                $this->userModel->deleteDosenById($id);
+                logActivity('pengguna', 'Menghapus pengguna dosen: ' . (string) ($dosen['name'] ?? ('ID ' . $id)), $id);
+                $deletedCount++;
+            } catch (Throwable $e) {
+                $blockedMessages[] = 'ID ' . $id . ': ' . $e->getMessage();
+            }
+        }
+
+        if ($deletedCount > 0 && $blockedMessages === []) {
+            $this->redirectToPath('pengguna', ['success' => $deletedCount . ' pengguna dosen berhasil dihapus.']);
+        }
+
+        if ($deletedCount > 0) {
+            $message = $deletedCount . ' pengguna berhasil dihapus. Sebagian gagal: ' . implode('; ', array_slice($blockedMessages, 0, 5));
+            if (count($blockedMessages) > 5) {
+                $message .= '; dan lainnya.';
+            }
+            $this->redirectToPath('pengguna', ['error' => $message]);
+        }
+
+        $message = 'Penghapusan tidak dapat diproses: ' . implode('; ', array_slice($blockedMessages, 0, 5));
+        if (count($blockedMessages) > 5) {
+            $message .= '; dan lainnya.';
+        }
+        $this->redirectToPath('pengguna', ['error' => $message]);
+    }
+
     public function changeRole(): void
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

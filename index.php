@@ -143,6 +143,7 @@ $prettyPathByRoute = [
     'users-dosen-edit' => 'pengguna/dosen',
     'users-dosen-update' => 'pengguna/dosen/simpan',
     'users-dosen-delete' => 'pengguna/dosen/hapus',
+    'users-dosen-bulk-delete' => 'pengguna/dosen/hapus-terpilih',
     'users-change-role' => 'pengguna/ganti-role',
     'logs' => 'log-aktivitas',
     'logs-bulk-delete' => 'log-aktivitas/hapus',
@@ -566,6 +567,10 @@ if (!$hasRouteQuery) {
         $_GET['route'] = 'users-dosen-delete';
     }
 
+    if ($relativePath === 'pengguna/dosen/hapus-terpilih') {
+        $_GET['route'] = 'users-dosen-bulk-delete';
+    }
+
     if ($relativePath === 'pengguna/ganti-role') {
         $_GET['route'] = 'users-change-role';
     }
@@ -747,6 +752,10 @@ if (in_array($requestMethod, ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
         'users-dosen-delete' => [
             'max' => (int) appEnv('RATE_LIMIT_USERS_DOSEN_DELETE_MAX', 40, __DIR__),
             'window' => (int) appEnv('RATE_LIMIT_USERS_DOSEN_DELETE_WINDOW', 300, __DIR__),
+        ],
+        'users-dosen-bulk-delete' => [
+            'max' => (int) appEnv('RATE_LIMIT_USERS_DOSEN_BULK_DELETE_MAX', 10, __DIR__),
+            'window' => (int) appEnv('RATE_LIMIT_USERS_DOSEN_BULK_DELETE_WINDOW', 300, __DIR__),
         ],
         'settings-contract-delete' => [
             'max' => (int) appEnv('RATE_LIMIT_SETTINGS_CONTRACT_DELETE_MAX', 30, __DIR__),

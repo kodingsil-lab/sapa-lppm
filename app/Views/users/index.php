@@ -148,9 +148,8 @@ $filterOptions = $filterOptions ?? ['faculties' => [], 'study_programs' => []];
             <?php endif; ?>
         </div>
         <div class="card-body pt-2">
-            <form id="bulkDeleteUsersForm" method="post" action="<?= htmlspecialchars($basePath . '/pengguna/dosen/hapus-terpilih', ENT_QUOTES, 'UTF-8'); ?>">
-                <div class="activity-table-wrap myletters-table-wrap table-responsive">
-                    <table id="dosenUsersTable" data-custom-pagination="10" class="table table-hover align-middle mb-0 w-100">
+            <div class="activity-table-wrap myletters-table-wrap table-responsive">
+                <table id="dosenUsersTable" data-custom-pagination="10" class="table table-hover align-middle mb-0 w-100">
                     <thead>
                         <tr>
                             <?php if ($canBulkDelete): ?>
@@ -175,7 +174,7 @@ $filterOptions = $filterOptions ?? ['faculties' => [], 'study_programs' => []];
                             <?php foreach ($rows as $index => $row): ?>
                                 <tr>
                                     <?php if ($canBulkDelete): ?>
-                                        <td><input type="checkbox" name="user_ids[]" value="<?= (int) ($row['id'] ?? 0); ?>" class="user-checkbox"></td>
+                                        <td><input type="checkbox" value="<?= (int) ($row['id'] ?? 0); ?>" class="user-checkbox"></td>
                                     <?php endif; ?>
                                     <td><?= (int) $index + 1; ?></td>
                                     <td><?= htmlspecialchars((string) ($row['name'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
@@ -230,12 +229,17 @@ $filterOptions = $filterOptions ?? ['faculties' => [], 'study_programs' => []];
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </tbody>
-                    </table>
-                </div>
-            </form>
+                </table>
+            </div>
         </div>
     </div>
 </div>
+
+<?php if ($canBulkDelete): ?>
+    <form id="bulkDeleteUsersForm" method="post" action="<?= htmlspecialchars($basePath . '/pengguna/dosen/hapus-terpilih', ENT_QUOTES, 'UTF-8'); ?>">
+        <input type="hidden" name="_csrf" value="<?= htmlspecialchars(csrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
+    </form>
+<?php endif; ?>
 
 <div class="modal fade" id="hapusDosenModal" tabindex="-1" aria-labelledby="hapusDosenModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -432,6 +436,22 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (confirmBulkDeleteUsersBtn && bulkDeleteUsersForm) {
         confirmBulkDeleteUsersBtn.addEventListener('click', function () {
+            bulkDeleteUsersForm.querySelectorAll('input[name="user_ids[]"]').forEach(function (input) {
+                input.remove();
+            });
+
+            userCheckboxes.forEach(function (cb) {
+                if (!cb.checked) {
+                    return;
+                }
+
+                var hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = 'user_ids[]';
+                hiddenInput.value = cb.value || '';
+                bulkDeleteUsersForm.appendChild(hiddenInput);
+            });
+
             bulkDeleteUsersForm.submit();
         });
     }

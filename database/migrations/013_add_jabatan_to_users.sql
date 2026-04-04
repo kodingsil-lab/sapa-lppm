@@ -1,0 +1,3 @@
+ALTER TABLE `users`
+    ADD COLUMN IF NOT EXISTS `jabatan` VARCHAR(120) NULL AFTER `phone`;
+

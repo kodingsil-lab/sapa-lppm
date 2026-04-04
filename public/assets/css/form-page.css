@@ -1,0 +1,280 @@
+/* =========================
+   FORM PAGE STYLES
+   Khusus untuk halaman form agar tidak bentrok dengan dashboard
+========================= */
+
+.form-page .page-content {
+    background: #f5f7fb;
+    padding: 24px;
+}
+
+.form-page .permit-page {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.form-page .permit-breadcrumb-wrap {
+    background: #ffffff;
+    border: 1px solid #e5eaf1;
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+}
+
+.form-page .permit-breadcrumb .breadcrumb-item,
+.form-page .permit-breadcrumb .breadcrumb-item a {
+    color: #5f6b7a;
+    font-size: 0.85rem;
+    text-decoration: none;
+}
+
+.form-page .permit-breadcrumb .breadcrumb-item.active {
+    color: #123c6b;
+    font-weight: 600;
+}
+
+.form-page .permit-heading h4 {
+    font-weight: 700;
+    color: #123c6b;
+    margin-bottom: 8px;
+}
+
+.form-page .permit-heading p {
+    color: #6b7280;
+    font-size: 0.95rem;
+}
+
+.form-page .permit-form .permit-section {
+    background: #fff;
+    border: 1px solid #e7edf5;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+    border-radius: 14px;
+    margin-bottom: 16px;
+    transition: box-shadow 0.2s ease;
+}
+
+.form-page .permit-form .permit-section:hover {
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.form-page .permit-form .permit-section-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid #eef2f7;
+    background: #fff;
+}
+
+.form-page .permit-form .permit-section-title {
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: #1f2a37;
+}
+
+.form-page .permit-form .permit-section-title i {
+    color: #123c6b;
+}
+
+.form-page .permit-form .permit-required-badge {
+    background: #eaf2fd;
+    color: #123c6b;
+    font-weight: 600;
+    border: 1px solid #d2e2f8;
+    font-size: 0.72rem;
+    padding: 0.28rem 0.55rem;
+    border-radius: 999px;
+}
+
+.form-page .permit-form .permit-section-body {
+    padding: 20px 22px;
+}
+
+.form-page .permit-form .form-label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #2f3a48;
+    margin-bottom: 6px;
+}
+
+.form-page .permit-form .form-control,
+.form-page .permit-form .form-select {
+    min-height: 45px;
+    border-radius: 10px;
+    border: 1px solid #dbe3ee;
+    font-size: 0.9rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-page .permit-form .form-control:focus,
+.form-page .permit-form .form-select:focus {
+    border-color: #3b7ddd;
+    box-shadow: 0 0 0 0.2rem rgba(59, 125, 221, 0.15);
+}
+
+.form-page .permit-form textarea.form-control {
+    min-height: 96px;
+    resize: vertical;
+}
+
+.form-page .permit-form .field-helper {
+    color: #7a8796;
+    font-size: 0.78rem;
+    margin-top: 4px;
+    display: inline-block;
+}
+
+.form-page .permit-form .form-check-label {
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+.form-page .permit-form .btn-submit-main {
+    background: #3b7ddd;
+    border-color: #3b7ddd;
+    color: #fff;
+    font-weight: 600;
+    padding: 10px 24px;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+}
+
+.form-page .permit-form .btn-submit-main:hover {
+    background: #2f6fd6;
+    border-color: #2f6fd6;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 125, 221, 0.25);
+}
+
+.form-page .permit-actions {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #eef2f7;
+}
+
+/* Compact form variant */
+.form-page .permit-form.compact-form .permit-section {
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+
+.form-page .permit-form.compact-form .permit-section-header {
+    padding: 10px 14px;
+}
+
+.form-page .permit-form.compact-form .permit-section-body {
+    padding: 12px 14px 10px;
+}
+
+.form-page .permit-form.compact-form .row {
+    --bs-gutter-x: 0.85rem;
+    --bs-gutter-y: 0.55rem;
+}
+
+.form-page .permit-form.compact-form .form-label {
+    margin-bottom: 0.25rem;
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: #243447;
+}
+
+.form-page .permit-form.compact-form .form-control,
+.form-page .permit-form.compact-form .form-select {
+    min-height: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: 1px solid #d7e0ec;
+    font-size: 14px;
+    padding: 0.42rem 0.7rem;
+}
+
+.form-page .permit-form.compact-form .form-control:focus,
+.form-page .permit-form.compact-form .form-select:focus {
+    border-color: #9db4d3;
+    box-shadow: 0 0 0 0.14rem rgba(18, 60, 107, 0.12);
+}
+
+.form-page .permit-form.compact-form textarea.form-control {
+    height: auto;
+    min-height: 70px;
+    resize: vertical;
+    line-height: 1.4;
+}
+
+.form-page .permit-form.compact-form .textarea-members {
+    min-height: 56px;
+}
+
+.form-page .permit-form.compact-form .textarea-purpose,
+.form-page .permit-form.compact-form .textarea-address,
+.form-page .permit-form.compact-form .textarea-notes {
+    min-height: 88px;
+}
+
+.form-page .permit-form.compact-form input[type="file"].form-control {
+    height: 40px;
+    padding-top: 0.4rem;
+}
+
+.form-page .permit-form.compact-form .field-helper {
+    margin-top: 2px;
+    font-size: 0.72rem;
+    line-height: 1.3;
+    color: #758396;
+}
+
+.form-page .permit-form.compact-form .invalid-feedback {
+    font-size: 0.74rem;
+    margin-top: 0.22rem;
+}
+
+.form-page .permit-form.compact-form .form-check {
+    margin-bottom: 0.45rem;
+}
+
+.form-page .permit-form.compact-form .form-check-label {
+    font-size: 0.86rem;
+    color: #2a394a;
+}
+
+.form-page .permit-form.compact-form .permit-actions {
+    margin-top: 0.65rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 767.98px) {
+    .form-page .page-content {
+        padding: 16px;
+    }
+    
+    .form-page .permit-form .permit-section-header {
+        padding: 10px 12px;
+    }
+    
+    .form-page .permit-form .permit-section-body {
+        padding: 12px 12px 10px;
+    }
+    
+    .form-page .permit-form.compact-form .permit-section-header {
+        padding: 10px 12px;
+    }
+    
+    .form-page .permit-form.compact-form .permit-section-body {
+        padding: 12px 12px 10px;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .form-page .permit-page {
+        padding: 0;
+    }
+    
+    .form-page .permit-breadcrumb-wrap {
+        padding: 8px 12px;
+    }
+    
+    .form-page .permit-heading h4 {
+        font-size: 1.1rem;
+    }
+    
+    .form-page .permit-heading p {
+        font-size: 0.85rem;
+    }
+}

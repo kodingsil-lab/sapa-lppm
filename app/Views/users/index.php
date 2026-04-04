@@ -15,6 +15,20 @@ $canBulkDelete = $canChangeRole;
 $hasActiveKepala = (bool) ($hasActiveKepala ?? false);
 $filters = $userFilters ?? ['keyword' => '', 'faculty' => '', 'study_program' => ''];
 $filterOptions = $filterOptions ?? ['faculties' => [], 'study_programs' => []];
+$accountStatusStyles = [
+    'dosen' => [
+        'label' => 'Dosen',
+        'class' => 'bg-primary-subtle text-primary',
+    ],
+    'kepala_lppm' => [
+        'label' => 'Dosen + Kepala LPPM',
+        'class' => 'bg-warning-subtle text-warning-emphasis',
+    ],
+    'admin_lppm' => [
+        'label' => 'Dosen + Kepala LPPM',
+        'class' => 'bg-warning-subtle text-warning-emphasis',
+    ],
+];
 ?>
 
 <div class="page-content myletters-page compact-list">
@@ -157,6 +171,7 @@ $filterOptions = $filterOptions ?? ['faculties' => [], 'study_programs' => []];
                             <?php endif; ?>
                             <th>No.</th>
                             <th>Nama Dosen</th>
+                            <th>Status Akun</th>
                             <th>NUPTK</th>
                             <th>Fakultas</th>
                             <th>Program Studi</th>
@@ -168,16 +183,31 @@ $filterOptions = $filterOptions ?? ['faculties' => [], 'study_programs' => []];
                     <tbody>
                         <?php if (empty($rows)): ?>
                             <tr>
-                                <td colspan="<?= $canBulkDelete ? '9' : '8'; ?>" class="text-center text-muted py-3">Belum ada pengguna dosen terdaftar.</td>
+                                <td colspan="<?= $canBulkDelete ? '10' : '9'; ?>" class="text-center text-muted py-3">Belum ada pengguna dosen terdaftar.</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($rows as $index => $row): ?>
+                                <?php
+                                    $rowRoleRaw = strtolower(trim((string) ($row['role'] ?? 'dosen')));
+                                    $isHeadRow = in_array($rowRoleRaw, ['kepala_lppm', 'admin_lppm'], true);
+                                    $canDeleteRow = !$isHeadRow;
+                                ?>
                                 <tr>
                                     <?php if ($canBulkDelete): ?>
-                                        <td><input type="checkbox" value="<?= (int) ($row['id'] ?? 0); ?>" class="user-checkbox"></td>
+                                        <td>
+                                            <?php if ($canDeleteRow): ?>
+                                                <input type="checkbox" value="<?= (int) ($row['id'] ?? 0); ?>" class="user-checkbox">
+                                            <?php endif; ?>
+                                        </td>
                                     <?php endif; ?>
                                     <td><?= (int) $index + 1; ?></td>
                                     <td><?= htmlspecialchars((string) ($row['name'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <?php $statusConfig = $accountStatusStyles[$rowRoleRaw] ?? $accountStatusStyles['dosen']; ?>
+                                    <td>
+                                        <span class="badge rounded-pill <?= htmlspecialchars((string) $statusConfig['class'], ENT_QUOTES, 'UTF-8'); ?>" style="font-size:11px;font-weight:600;">
+                                            <?= htmlspecialchars((string) $statusConfig['label'], ENT_QUOTES, 'UTF-8'); ?>
+                                        </span>
+                                    </td>
                                     <td><?= htmlspecialchars((string) (($row['nuptk'] ?? '') !== '' ? $row['nuptk'] : '-'), ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td><?= htmlspecialchars((string) (($row['faculty'] ?? '') !== '' ? $row['faculty'] : '-'), ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td><?= htmlspecialchars((string) (($row['study_program'] ?? '') !== '' ? $row['study_program'] : ($row['unit'] ?? '-')), ENT_QUOTES, 'UTF-8'); ?></td>
@@ -206,23 +236,25 @@ $filterOptions = $filterOptions ?? ['faculties' => [], 'study_programs' => []];
                                                     <button type="submit" class="btn btn-sm activity-btn user-action-btn user-action-impersonate user-switch-btn">Masuk Sebagai</button>
                                                 </form>
                                             <?php endif; ?>
-                                            <?php if ($canChangeRole): ?>
+                                            <?php if ($canChangeRole && !$isHeadRow): ?>
                                                 <form id="roleActionForm-promote-<?= (int) ($row['id'] ?? 0); ?>" method="post" action="<?= htmlspecialchars($basePath . '/pengguna/ganti-role', ENT_QUOTES, 'UTF-8'); ?>" class="d-inline">
                                                     <input type="hidden" name="id" value="<?= (int) ($row['id'] ?? 0); ?>">
                                                     <input type="hidden" name="action" value="promote_kepala">
                                                     <button type="button" class="btn btn-sm activity-btn user-action-btn user-role-btn user-role-promote js-role-action-btn" data-form-id="roleActionForm-promote-<?= (int) ($row['id'] ?? 0); ?>" data-confirm-title="Konfirmasi Perubahan Jabatan" data-confirm-message="Ubah role dosen ini menjadi Kepala LPPM?" <?= $hasActiveKepala ? 'disabled title="Sudah ada Kepala LPPM aktif. Lepas jabatan dulu."' : ''; ?>>Tunjuk sebagai Kepala LPPM</button>
                                                 </form>
                                             <?php endif; ?>
-                                            <button
-                                                type="button"
-                                                class="btn btn-sm activity-btn user-action-btn user-action-delete"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#hapusDosenModal"
-                                                data-delete-id="<?= (int) ($row['id'] ?? 0); ?>"
-                                                data-delete-name="<?= htmlspecialchars((string) ($row['name'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?>"
-                                            >
-                                                Hapus
-                                            </button>
+                                            <?php if ($canDeleteRow): ?>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm activity-btn user-action-btn user-action-delete"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#hapusDosenModal"
+                                                    data-delete-id="<?= (int) ($row['id'] ?? 0); ?>"
+                                                    data-delete-name="<?= htmlspecialchars((string) ($row['name'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?>"
+                                                >
+                                                    Hapus
+                                                </button>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>

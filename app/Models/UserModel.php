@@ -242,7 +242,7 @@ class UserModel extends BaseModel
     public function getDosenUsersForManagementFiltered(array $filters = []): array
     {
         $pdo = db_pdo();
-        $where = ["role = 'dosen'"];
+        $where = ["role IN ('dosen', 'kepala_lppm', 'admin_lppm')"];
         $params = [];
 
         $keyword = trim((string) ($filters['keyword'] ?? ''));
@@ -263,11 +263,12 @@ class UserModel extends BaseModel
             $params[':study_program'] = $studyProgram;
         }
 
-        $sql = "SELECT
-                id,
-                name,
-                nuptk,
-                faculty,
+         $sql = "SELECT
+                 id,
+                 role,
+                 name,
+                 nuptk,
+                 faculty,
                 study_program,
                 unit,
                 google_scholar_id,
@@ -315,7 +316,7 @@ class UserModel extends BaseModel
         $faculties = $pdo->query(
             "SELECT DISTINCT faculty
              FROM users
-             WHERE role = 'dosen'
+             WHERE role IN ('dosen', 'kepala_lppm', 'admin_lppm')
                AND COALESCE(NULLIF(faculty, ''), '') <> ''
              ORDER BY faculty ASC"
         )->fetchAll(PDO::FETCH_COLUMN) ?: [];
@@ -323,7 +324,7 @@ class UserModel extends BaseModel
         $studyPrograms = $pdo->query(
             "SELECT DISTINCT COALESCE(NULLIF(study_program, ''), unit) AS study_program_label
              FROM users
-             WHERE role = 'dosen'
+             WHERE role IN ('dosen', 'kepala_lppm', 'admin_lppm')
                AND COALESCE(NULLIF(COALESCE(NULLIF(study_program, ''), unit), ''), '') <> ''
              ORDER BY study_program_label ASC"
         )->fetchAll(PDO::FETCH_COLUMN) ?: [];
@@ -337,9 +338,9 @@ class UserModel extends BaseModel
     public function getDosenSummary(): array
     {
         $pdo = db_pdo();
-        $totalDosen = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'dosen'")->fetchColumn();
-        $totalProdi = (int) $pdo->query("SELECT COUNT(DISTINCT COALESCE(NULLIF(study_program, ''), NULLIF(unit, ''))) FROM users WHERE role = 'dosen'")->fetchColumn();
-        $totalWithNuptk = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'dosen' AND COALESCE(NULLIF(nuptk, ''), '') <> ''")->fetchColumn();
+        $totalDosen = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role IN ('dosen', 'kepala_lppm', 'admin_lppm')")->fetchColumn();
+        $totalProdi = (int) $pdo->query("SELECT COUNT(DISTINCT COALESCE(NULLIF(study_program, ''), NULLIF(unit, ''))) FROM users WHERE role IN ('dosen', 'kepala_lppm', 'admin_lppm')")->fetchColumn();
+        $totalWithNuptk = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role IN ('dosen', 'kepala_lppm', 'admin_lppm') AND COALESCE(NULLIF(nuptk, ''), '') <> ''")->fetchColumn();
 
         return [
             'total_dosen' => $totalDosen,
@@ -381,7 +382,7 @@ class UserModel extends BaseModel
     public function findDosenById(int $id): ?array
     {
         $pdo = db_pdo();
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = :id AND role = 'dosen' LIMIT 1");
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = :id AND role IN ('dosen', 'kepala_lppm', 'admin_lppm') LIMIT 1");
         $stmt->execute([':id' => $id]);
         $data = $stmt->fetch();
 

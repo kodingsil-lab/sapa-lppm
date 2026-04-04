@@ -744,8 +744,14 @@ if (in_array($requestMethod, ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
         'auth-impersonate' => ['max' => 20, 'window' => 300],
         'auth-impersonate-exit' => ['max' => 30, 'window' => 300],
         'users-change-role' => ['max' => 20, 'window' => 300],
-        'users-dosen-delete' => ['max' => 15, 'window' => 300],
-        'settings-contract-delete' => ['max' => 15, 'window' => 300],
+        'users-dosen-delete' => [
+            'max' => (int) appEnv('RATE_LIMIT_USERS_DOSEN_DELETE_MAX', 40, __DIR__),
+            'window' => (int) appEnv('RATE_LIMIT_USERS_DOSEN_DELETE_WINDOW', 300, __DIR__),
+        ],
+        'settings-contract-delete' => [
+            'max' => (int) appEnv('RATE_LIMIT_SETTINGS_CONTRACT_DELETE_MAX', 30, __DIR__),
+            'window' => (int) appEnv('RATE_LIMIT_SETTINGS_CONTRACT_DELETE_WINDOW', 300, __DIR__),
+        ],
         'logs-bulk-delete' => ['max' => 10, 'window' => 300],
     ];
     if (isset($sensitiveRouteLimits[$routeKey])) {

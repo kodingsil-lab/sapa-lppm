@@ -41,21 +41,9 @@ if (!function_exists('authIsHttpsRequest')) {
 if (!function_exists('authClientIp')) {
     function authClientIp(): string
     {
-        $candidates = [
-            (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''),
-            (string) ($_SERVER['HTTP_CLIENT_IP'] ?? ''),
-            (string) ($_SERVER['REMOTE_ADDR'] ?? ''),
-        ];
-
-        foreach ($candidates as $candidate) {
-            if ($candidate === '') {
-                continue;
-            }
-
-            $first = trim(explode(',', $candidate)[0] ?? '');
-            if ($first !== '' && filter_var($first, FILTER_VALIDATE_IP) !== false) {
-                return $first;
-            }
+        $remoteAddr = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+        if ($remoteAddr !== '' && filter_var($remoteAddr, FILTER_VALIDATE_IP) !== false) {
+            return $remoteAddr;
         }
 
         return 'unknown';

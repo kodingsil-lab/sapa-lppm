@@ -2,7 +2,7 @@ RewriteEngine On
 
 # Blok akses langsung ke file/folder sensitif di luar public assets yang memang perlu dibuka.
 RewriteRule ^(?:app|vendor|env|builds|writable)(?:/|$) - [F,L,NC]
-RewriteRule ^storage/uploads(?:/|$) - [F,L,NC]
+RewriteRule ^storage(?:/|$) - [F,L,NC]
 RewriteRule ^public/uploads/avatars(?:/|$) - [F,L,NC]
 RewriteRule ^(?:config\.php|composer\.(?:json|lock)|preload\.php|README\.md|LICENSE|\.env(?:\..*)?)$ - [F,L,NC]
 

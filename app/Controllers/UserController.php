@@ -220,6 +220,9 @@ class UserController extends BaseController
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirectToPath('pengguna');
         }
+        if (authRole() !== 'admin') {
+            $this->redirectToPath('pengguna', ['error' => 'Aksi ini hanya tersedia untuk admin.']);
+        }
 
         $id = (int) ($_POST['id'] ?? 0);
         if ($id <= 0) {

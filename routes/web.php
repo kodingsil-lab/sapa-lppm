@@ -51,7 +51,7 @@ return [
     'users-dosen-show' => ['controller' => 'UserController', 'method' => 'showDosen', 'roles' => ['admin', 'kepala_lppm']],
     'users-dosen-edit' => ['controller' => 'UserController', 'method' => 'editDosen', 'roles' => ['admin', 'kepala_lppm']],
     'users-dosen-update' => ['controller' => 'UserController', 'method' => 'updateDosen', 'roles' => ['admin', 'kepala_lppm'], 'methods' => ['POST']],
-    'users-dosen-delete' => ['controller' => 'UserController', 'method' => 'deleteDosen', 'roles' => ['admin', 'kepala_lppm'], 'methods' => ['POST']],
+    'users-dosen-delete' => ['controller' => 'UserController', 'method' => 'deleteDosen', 'roles' => ['admin'], 'methods' => ['POST']],
     'users-dosen-bulk-delete' => ['controller' => 'UserController', 'method' => 'bulkDeleteDosen', 'roles' => ['admin'], 'methods' => ['POST']],
     'users-change-role' => ['controller' => 'UserController', 'method' => 'changeRole', 'roles' => ['admin'], 'methods' => ['POST']],
     'users-profile' => ['controller' => 'UserController', 'method' => 'profile', 'roles' => ['admin', 'kepala_lppm']],

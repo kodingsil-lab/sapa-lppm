@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+#deploy-sapa-lppm
+
 set -euo pipefail
 
 APP_SLUG="${APP_SLUG:-sapa-lppm}"

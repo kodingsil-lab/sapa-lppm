@@ -1,3 +1,4 @@
 SAPA LPPM - Sistem Administrasi Persuratan dan Arsip Universitas San Pedro
 
-Deploy guide: `docs/go-live-deploy.md`
+Deploy SQL: `database/sql/production_setup.sql`
+Deploy script: `scripts/deploy.sh`

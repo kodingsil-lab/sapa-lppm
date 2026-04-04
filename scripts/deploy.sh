@@ -58,7 +58,7 @@ if [ -e "$PUBLIC_HTML" ] && [ ! -L "$PUBLIC_HTML" ]; then
     echo "Hapus atau ubah manual dulu, lalu jalankan ulang script."
     exit 1
 fi
-ln -sfn "$CURRENT_LINK/public" "$PUBLIC_HTML"
+ln -sfn "$CURRENT_LINK" "$PUBLIC_HTML"
 
 echo "[8/8] Selesai."
 echo "Current : $CURRENT_LINK"

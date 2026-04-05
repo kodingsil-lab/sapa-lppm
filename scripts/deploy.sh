@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 #deploy-sapa-lppm
 
+echo 'alias deploy-sapa-lppm="/home/u541589701/bin/deploy-sapa-lppm"' >> ~/.bashrc
+source ~/.bashrc
+
+
 set -euo pipefail
 
 APP_SLUG="${APP_SLUG:-sapa-lppm}"

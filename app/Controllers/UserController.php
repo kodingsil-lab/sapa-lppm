@@ -4,16 +4,26 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../Models/UserModel.php';
+require_once __DIR__ . '/../Models/ActivityLogModel.php';
 require_once __DIR__ . '/../Helpers/ActivityLogHelper.php';
+require_once __DIR__ . '/../../vendor/autoload.php';
+
+use Dompdf\Dompdf;
+use Dompdf\Options;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class UserController extends BaseController
 {
     private UserModel $userModel;
+    private ActivityLogModel $activityLogModel;
 
     public function __construct()
     {
         parent::__construct();
         $this->userModel = new UserModel();
+        $this->activityLogModel = new ActivityLogModel();
     }
 
     public function index(): void
@@ -414,6 +424,403 @@ class UserController extends BaseController
             'successMessage' => $_GET['success'] ?? null,
             'errorMessage' => $_GET['error'] ?? null,
         ]);
+    }
+
+    public function importUsersPage(): void
+    {
+        $summary = $this->userModel->getDosenSummary();
+        ensureSessionStarted();
+        $importPreview = $_SESSION['users_import_preview'] ?? null;
+
+        $this->render('users/import', [
+            'pageTitle' => 'Impor Pengguna',
+            'totalUsers' => (int) ($summary['total_dosen'] ?? 0),
+            'templateFormat' => 'XLSX',
+            'recentImports' => $this->activityLogModel->getRecentImports('pengguna', 10),
+            'importPreview' => is_array($importPreview) ? $importPreview : null,
+            'successMessage' => $_GET['success'] ?? null,
+            'errorMessage' => $_GET['error'] ?? null,
+        ]);
+    }
+
+    public function downloadUsersImportTemplate(): void
+    {
+        $filename = 'template-impor-pengguna-' . date('Ymd-His') . '.xlsx';
+        $faculties = $this->getUsersImportFacultyReferences();
+        $studyPrograms = $this->getUsersImportStudyProgramReferences();
+        $academicRanks = $this->getUsersImportAcademicRankReferences();
+
+        $spreadsheet = new Spreadsheet();
+        $templateSheet = $spreadsheet->getActiveSheet();
+        $templateSheet->setTitle('Template');
+
+        $headers = ['nama', 'nidn', 'nuptk', 'email', 'username', 'password', 'fakultas', 'program_studi', 'no_hp', 'jenis_kelamin', 'google_scholar', 'sinta', 'status'];
+        $templateSheet->fromArray($headers, null, 'A1');
+        $templateSheet->fromArray([
+            'Contoh Dosen',
+            '1234567890',
+            '9458768669131001',
+            'contoh.dosen@kampus.ac.id',
+            'contohdosen',
+            'Password@123',
+            'Fakultas Teknik dan Perencanaan',
+            'Teknik Informatika',
+            '081234567890',
+            'Laki-laki',
+            'https://scholar.google.com/citations?user=contoh',
+            'https://sinta.kemdiktisaintek.go.id/authors/profile/12345',
+            'aktif',
+        ], null, 'A2');
+
+        foreach (range('A', 'M') as $column) {
+            $templateSheet->getColumnDimension($column)->setAutoSize(true);
+        }
+        $templateSheet->setCellValue('A4', 'Petunjuk: gunakan sheet Referensi untuk memilih nilai fakultas dan program studi yang sesuai.');
+        $templateSheet->mergeCells('A4:M4');
+        $templateSheet->getStyle('A1:M1')->getFont()->setBold(true);
+        $templateSheet->getStyle('A1:M1')->getFill()->setFillType('solid')->getStartColor()->setRGB('D9E2F3');
+        $templateSheet->getStyle('A4')->getFont()->setItalic(true);
+        $templateSheet->freezePane('A2');
+
+        $referenceSheet = $spreadsheet->createSheet();
+        $referenceSheet->setTitle('Referensi');
+        $referenceSheet->setCellValue('A1', 'Referensi Fakultas');
+        $referenceSheet->setCellValue('C1', 'Referensi Program Studi');
+        $referenceSheet->setCellValue('E1', 'Referensi Jabatan Fungsional');
+        $referenceSheet->getStyle('A1')->getFont()->setBold(true);
+        $referenceSheet->getStyle('C1')->getFont()->setBold(true);
+        $referenceSheet->getStyle('E1')->getFont()->setBold(true);
+        $referenceSheet->getStyle('A1')->getFill()->setFillType('solid')->getStartColor()->setRGB('E7E6E6');
+        $referenceSheet->getStyle('C1')->getFill()->setFillType('solid')->getStartColor()->setRGB('E7E6E6');
+        $referenceSheet->getStyle('E1')->getFill()->setFillType('solid')->getStartColor()->setRGB('E7E6E6');
+
+        $facultyRow = 2;
+        foreach ($faculties as $faculty) {
+            $referenceSheet->setCellValue('A' . $facultyRow, (string) $faculty);
+            $facultyRow++;
+        }
+
+        $studyProgramRow = 2;
+        foreach ($studyPrograms as $studyProgram) {
+            $referenceSheet->setCellValue('C' . $studyProgramRow, (string) $studyProgram);
+            $studyProgramRow++;
+        }
+
+        $academicRankRow = 2;
+        foreach ($academicRanks as $academicRank) {
+            $referenceSheet->setCellValue('E' . $academicRankRow, (string) $academicRank);
+            $academicRankRow++;
+        }
+
+        $referenceSheet->getColumnDimension('A')->setAutoSize(true);
+        $referenceSheet->getColumnDimension('C')->setAutoSize(true);
+        $referenceSheet->getColumnDimension('E')->setAutoSize(true);
+
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
+        $writer = new Xlsx($spreadsheet);
+        $writer->save('php://output');
+        exit;
+    }
+
+    public function previewUsersImport(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirectToPath('pengguna/impor');
+        }
+
+        ensureSessionStarted();
+        unset($_SESSION['users_import_preview']);
+
+        try {
+            if (!isset($_FILES['import_file']) || !is_array($_FILES['import_file'])) {
+                throw new RuntimeException('File impor belum dipilih.');
+            }
+
+            $file = $_FILES['import_file'];
+            $errorCode = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+            if ($errorCode !== UPLOAD_ERR_OK) {
+                throw new RuntimeException('Upload file impor gagal. Silakan pilih file yang valid.');
+            }
+
+            $tmpPath = (string) ($file['tmp_name'] ?? '');
+            $originalName = trim((string) ($file['name'] ?? 'import.xlsx'));
+            if ($tmpPath === '' || !is_uploaded_file($tmpPath)) {
+                throw new RuntimeException('File upload tidak valid.');
+            }
+            $fileSize = (int) ($file['size'] ?? 0);
+            if ($fileSize <= 0) {
+                throw new RuntimeException('File impor tidak boleh kosong.');
+            }
+            if ($fileSize > 5 * 1024 * 1024) {
+                throw new RuntimeException('Ukuran file impor maksimal 5 MB.');
+            }
+            $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+            if ($extension !== 'xlsx') {
+                throw new RuntimeException('Format file impor harus Excel (.xlsx).');
+            }
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mimeType = strtolower((string) $finfo->file($tmpPath));
+            $allowedMimeTypes = [
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/zip',
+                'application/x-zip-compressed',
+                'application/octet-stream',
+            ];
+            if (!in_array($mimeType, $allowedMimeTypes, true)) {
+                throw new RuntimeException('Tipe file impor tidak valid. Gunakan file Excel (.xlsx) yang benar.');
+            }
+
+            $rows = $this->parseUsersImportXlsx($tmpPath, $originalName);
+            if ($rows === []) {
+                throw new RuntimeException('File impor kosong atau tidak memiliki data.');
+            }
+
+            $preview = $this->buildUsersImportPreview($rows, $originalName);
+            $_SESSION['users_import_preview'] = $preview;
+
+            $this->redirectToPath('pengguna/impor', [
+                'success' => 'Preview impor berhasil dibuat. Periksa data valid sebelum menyimpan.',
+            ]);
+        } catch (Throwable $e) {
+            $this->redirectToPath('pengguna/impor', ['error' => $e->getMessage()]);
+        }
+    }
+
+    public function storeUsersImport(): void
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirectToPath('pengguna/impor');
+        }
+
+        ensureSessionStarted();
+        $preview = $_SESSION['users_import_preview'] ?? null;
+        if (!is_array($preview) || !isset($preview['valid_rows']) || !is_array($preview['valid_rows'])) {
+            $this->redirectToPath('pengguna/impor', ['error' => 'Preview impor tidak ditemukan. Upload file terlebih dahulu.']);
+        }
+
+        $validRows = $preview['valid_rows'];
+        if ($validRows === []) {
+            $this->redirectToPath('pengguna/impor', ['error' => 'Tidak ada data valid untuk disimpan.']);
+        }
+
+        $createdCount = 0;
+        $failedMessages = [];
+
+        foreach ($validRows as $row) {
+            try {
+                $email = (string) ($row['email'] ?? '');
+                $username = (string) ($row['username'] ?? '');
+
+                if ($this->userModel->findByNuptk((string) ($row['nuptk'] ?? '')) !== null) {
+                    $failedMessages[] = (string) ($row['name'] ?? 'Tanpa Nama') . ' - NUPTK sudah terdaftar.';
+                    continue;
+                }
+                if ($this->userModel->findByEmail($email) !== null) {
+                    $failedMessages[] = (string) ($row['name'] ?? 'Tanpa Nama') . ' - email sudah terdaftar.';
+                    continue;
+                }
+                if ($this->userModel->findByUsername($username) !== null) {
+                    $failedMessages[] = (string) ($row['name'] ?? 'Tanpa Nama') . ' - username sudah terdaftar.';
+                    continue;
+                }
+
+                $this->userModel->createPublicDosen($row);
+                $createdCount++;
+            } catch (Throwable $e) {
+                $failedMessages[] = (string) ($row['name'] ?? 'Tanpa Nama') . ' - ' . $e->getMessage();
+            }
+        }
+
+        unset($_SESSION['users_import_preview']);
+
+        if ($createdCount > 0) {
+            logActivity('pengguna', 'Impor pengguna (' . $createdCount . ' data)');
+        }
+
+        if ($createdCount > 0 && $failedMessages === []) {
+            $this->redirectToPath('pengguna/impor', ['success' => $createdCount . ' pengguna berhasil diimpor.']);
+        }
+
+        if ($createdCount > 0) {
+            $message = $createdCount . ' pengguna berhasil diimpor. Sebagian gagal: ' . implode('; ', array_slice($failedMessages, 0, 5));
+            if (count($failedMessages) > 5) {
+                $message .= '; dan lainnya.';
+            }
+            $this->redirectToPath('pengguna/impor', ['error' => $message]);
+        }
+
+        $message = 'Impor gagal: ' . implode('; ', array_slice($failedMessages, 0, 5));
+        if (count($failedMessages) > 5) {
+            $message .= '; dan lainnya.';
+        }
+        $this->redirectToPath('pengguna/impor', ['error' => $message]);
+    }
+
+    public function exportUsersPage(): void
+    {
+        $filters = [
+            'keyword' => trim((string) ($_GET['keyword'] ?? '')),
+            'faculty' => trim((string) ($_GET['faculty'] ?? '')),
+            'study_program' => trim((string) ($_GET['study_program'] ?? '')),
+        ];
+        $filterOptions = $this->userModel->getDosenFilterOptions();
+
+        if ($filters['faculty'] !== '' && !in_array($filters['faculty'], $filterOptions['faculties'], true)) {
+            $filters['faculty'] = '';
+        }
+        if ($filters['study_program'] !== '' && !in_array($filters['study_program'], $filterOptions['study_programs'], true)) {
+            $filters['study_program'] = '';
+        }
+
+        $rows = $this->userModel->getDosenUsersForManagementFiltered($filters);
+
+        $this->render('users/export', [
+            'pageTitle' => 'Ekspor Pengguna',
+            'userFilters' => $filters,
+            'filterOptions' => $filterOptions,
+            'totalUsers' => count($rows),
+            'activeFilterCount' => count(array_filter($filters, static fn (string $value): bool => trim($value) !== '')),
+            'recentExports' => $this->activityLogModel->getRecentExports('pengguna', 10),
+            'successMessage' => $_GET['success'] ?? null,
+            'errorMessage' => $_GET['error'] ?? null,
+        ]);
+    }
+
+    public function downloadUsersExport(): void
+    {
+        $filters = [
+            'keyword' => trim((string) ($_POST['keyword'] ?? '')),
+            'faculty' => trim((string) ($_POST['faculty'] ?? '')),
+            'study_program' => trim((string) ($_POST['study_program'] ?? '')),
+        ];
+        $filterOptions = $this->userModel->getDosenFilterOptions();
+
+        if ($filters['faculty'] !== '' && !in_array($filters['faculty'], $filterOptions['faculties'], true)) {
+            $filters['faculty'] = '';
+        }
+        if ($filters['study_program'] !== '' && !in_array($filters['study_program'], $filterOptions['study_programs'], true)) {
+            $filters['study_program'] = '';
+        }
+
+        $rows = $this->userModel->getDosenUsersForManagementFiltered($filters);
+        $filename = 'pengguna-dosen-' . date('Ymd-His') . '.xlsx';
+        $filterLabels = [];
+        if ($filters['faculty'] !== '') {
+            $filterLabels[] = 'fakultas=' . $filters['faculty'];
+        }
+        if ($filters['study_program'] !== '') {
+            $filterLabels[] = 'prodi=' . $filters['study_program'];
+        }
+        if ($filters['keyword'] !== '') {
+            $filterLabels[] = 'kata_kunci=' . $filters['keyword'];
+        }
+        $filterSummary = $filterLabels !== [] ? ' | filter: ' . implode(', ', $filterLabels) : '';
+        logActivity('pengguna', 'Ekspor pengguna Excel (' . count($rows) . ' data)' . $filterSummary);
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Pengguna');
+
+        $headers = ['No', 'Nama Dosen', 'Status Akun', 'NUPTK', 'Fakultas', 'Program Studi', 'Email', 'Username', 'No. HP', 'Google Scholar', 'Sinta'];
+        $sheet->fromArray($headers, null, 'A1');
+        $sheet->getStyle('A1:K1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:K1')->getFill()->setFillType('solid')->getStartColor()->setRGB('D9E2F3');
+        $sheet->freezePane('A2');
+
+        $rowNumber = 2;
+        foreach ($rows as $index => $row) {
+            $statusLabel = $this->resolveUserExportStatusLabel((string) ($row['role'] ?? 'dosen'));
+            $sheet->setCellValue('A' . $rowNumber, $index + 1);
+            $sheet->setCellValue('B' . $rowNumber, (string) ($row['name'] ?? ''));
+            $sheet->setCellValue('C' . $rowNumber, $statusLabel);
+            $sheet->setCellValueExplicit('D' . $rowNumber, (string) ($row['nuptk'] ?? ''), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValue('E' . $rowNumber, (string) ($row['faculty'] ?? ''));
+            $sheet->setCellValue('F' . $rowNumber, (string) (($row['study_program'] ?? '') !== '' ? $row['study_program'] : ($row['unit'] ?? '')));
+            $sheet->setCellValue('G' . $rowNumber, (string) ($row['email'] ?? ''));
+            $sheet->setCellValue('H' . $rowNumber, (string) ($row['username'] ?? ''));
+            $sheet->setCellValueExplicit('I' . $rowNumber, $this->normalizeExportPhone((string) ($row['phone'] ?? '')), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValue('J' . $rowNumber, (string) ($row['google_scholar_id'] ?? ''));
+            $sheet->setCellValue('K' . $rowNumber, (string) ($row['sinta_id'] ?? ''));
+            $rowNumber++;
+        }
+
+        foreach (range('A', 'K') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
+        $writer = new Xlsx($spreadsheet);
+        $writer->save('php://output');
+        exit;
+    }
+
+    public function downloadUsersExportPdf(): void
+    {
+        $filters = [
+            'keyword' => trim((string) ($_POST['keyword'] ?? '')),
+            'faculty' => trim((string) ($_POST['faculty'] ?? '')),
+            'study_program' => trim((string) ($_POST['study_program'] ?? '')),
+        ];
+        $filterOptions = $this->userModel->getDosenFilterOptions();
+
+        if ($filters['faculty'] !== '' && !in_array($filters['faculty'], $filterOptions['faculties'], true)) {
+            $filters['faculty'] = '';
+        }
+        if ($filters['study_program'] !== '' && !in_array($filters['study_program'], $filterOptions['study_programs'], true)) {
+            $filters['study_program'] = '';
+        }
+
+        $rows = $this->userModel->getDosenUsersForManagementFiltered($filters);
+        $filename = 'pengguna-dosen-' . date('Ymd-His') . '.pdf';
+        $filterLabels = [];
+        if ($filters['faculty'] !== '') {
+            $filterLabels[] = 'Fakultas: ' . $filters['faculty'];
+        }
+        if ($filters['study_program'] !== '') {
+            $filterLabels[] = 'Program Studi: ' . $filters['study_program'];
+        }
+        if ($filters['keyword'] !== '') {
+            $filterLabels[] = 'Kata Kunci: ' . $filters['keyword'];
+        }
+
+        logActivity(
+            'pengguna',
+            'Ekspor pengguna PDF (' . count($rows) . ' data)' . ($filterLabels !== [] ? ' | filter: ' . implode(', ', $filterLabels) : '')
+        );
+
+        $html = $this->buildUsersExportPdfHtml($rows, $filterLabels);
+
+        $options = new Options();
+        $options->set('isRemoteEnabled', false);
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('isFontSubsettingEnabled', true);
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+        $canvas = $dompdf->getCanvas();
+        $fontMetrics = $dompdf->getFontMetrics();
+        $font = $fontMetrics->getFont('Helvetica', 'normal');
+        $canvas->page_text(480, 810, 'Halaman {PAGE_NUM} / {PAGE_COUNT}', $font, 9, [0, 0, 0]);
+
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+        echo $dompdf->output();
+        exit;
     }
 
     public function uploadSignature(): void
@@ -918,5 +1325,432 @@ class UserController extends BaseController
 
         $fallback = (string) (mime_content_type($path) ?: '');
         return strtolower(trim($fallback));
+    }
+
+    private function buildUsersExportPdfHtml(array $rows, array $filterLabels): string
+    {
+        $generatedAt = date('d M Y H:i');
+        $generatedBy = (string) ((authUser()['name'] ?? '') !== '' ? authUser()['name'] : 'Admin SAPA LPPM');
+        $filterSummary = $filterLabels !== [] ? implode(' | ', $filterLabels) : 'Semua data pengguna dosen';
+
+        $profileBlocks = '';
+        foreach ($rows as $index => $row) {
+            $profileBlocks .= '<div class="profile-card">';
+            $profileBlocks .= '<div class="profile-header">';
+            $profileBlocks .= '<div class="profile-number">#' . ($index + 1) . '</div>';
+            $profileBlocks .= '<div class="profile-name">' . $this->escapePdfHtml((string) ($row['name'] ?? '-')) . '</div>';
+            $profileBlocks .= '<div class="profile-status">' . $this->escapePdfHtml($this->resolveUserExportStatusLabel((string) ($row['role'] ?? 'dosen'))) . '</div>';
+            $profileBlocks .= '</div>';
+            $profileBlocks .= '<table class="profile-table">';
+            $profileBlocks .= $this->buildProfilePdfRow('NIDN', (string) (($row['nidn'] ?? '') !== '' ? $row['nidn'] : '-'));
+            $profileBlocks .= $this->buildProfilePdfRow('NUPTK', (string) (($row['nuptk'] ?? '') !== '' ? $row['nuptk'] : '-'));
+            $profileBlocks .= $this->buildProfilePdfRow('Jenis Kelamin', (string) (($row['gender'] ?? '') !== '' ? $row['gender'] : '-'));
+            $profileBlocks .= $this->buildProfilePdfRow('Fakultas', (string) (($row['faculty'] ?? '') !== '' ? $row['faculty'] : '-'));
+            $profileBlocks .= $this->buildProfilePdfRow('Program Studi', (string) (($row['study_program'] ?? '') !== '' ? $row['study_program'] : ($row['unit'] ?? '-')));
+            $profileBlocks .= $this->buildProfilePdfRow('Email', (string) (($row['email'] ?? '') !== '' ? $row['email'] : '-'));
+            $profileBlocks .= $this->buildProfilePdfRow('Username', (string) (($row['username'] ?? '') !== '' ? $row['username'] : '-'));
+            $profileBlocks .= $this->buildProfilePdfRow('No. HP', (string) (($this->normalizeExportPhone((string) ($row['phone'] ?? ''))) !== '' ? $this->normalizeExportPhone((string) ($row['phone'] ?? '')) : '-'));
+            $profileBlocks .= $this->buildProfilePdfRow('Google Scholar', (string) (($row['google_scholar_id'] ?? '') !== '' ? $row['google_scholar_id'] : '-'));
+            $profileBlocks .= $this->buildProfilePdfRow('Sinta', (string) (($row['sinta_id'] ?? '') !== '' ? $row['sinta_id'] : '-'));
+            $profileBlocks .= '</table>';
+            $profileBlocks .= '</div>';
+            if ($index < count($rows) - 1) {
+                $profileBlocks .= '<div class="profile-divider"></div>';
+            }
+        }
+
+        if ($profileBlocks === '') {
+            $profileBlocks = '<div class="empty-state">Tidak ada data pengguna untuk diekspor.</div>';
+        }
+
+        return '<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Ekspor Pengguna</title>
+    <style>
+        @page { margin: 22px 24px; }
+        body { font-family: DejaVu Sans, sans-serif; color: #000000; font-size: 10px; margin: 0; }
+        .header { margin-bottom: 14px; }
+        .title { font-size: 20px; font-weight: bold; margin-bottom: 4px; }
+        .subtitle { font-size: 10px; color: #000000; }
+        .meta { margin-top: 5px; font-size: 9px; color: #000000; }
+        .profile-card { border: 1px solid #666666; margin-bottom: 0; page-break-inside: avoid; }
+        .profile-header { background: #d9d9d9; padding: 9px 11px; border-bottom: 1px solid #666666; }
+        .profile-number { font-size: 10px; margin-bottom: 4px; }
+        .profile-name { font-size: 15px; font-weight: bold; margin-bottom: 4px; }
+        .profile-status { font-size: 10px; }
+        .profile-table { width: 100%; border-collapse: collapse; }
+        .profile-table td { border: 1px solid #8f8f8f; padding: 7px 8px; vertical-align: top; word-wrap: break-word; overflow-wrap: anywhere; background: #ffffff; }
+        .label-cell { width: 28%; background: #f2f2f2; font-weight: bold; }
+        .value-cell { width: 72%; }
+        .empty-state { border: 1px solid #8f8f8f; padding: 14px; text-align: center; }
+        .profile-divider { border-top: 1px dashed #8f8f8f; margin: 10px 0 14px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">Ekspor Pengguna Dosen</div>
+        <div class="subtitle">SAPA LPPM - Sistem Administrasi Persuratan dan Arsip LPPM</div>
+        <div class="meta">Dicetak: ' . $this->escapePdfHtml($generatedAt) . ' | Oleh: ' . $this->escapePdfHtml($generatedBy) . '</div>
+        <div class="meta">Filter: ' . $this->escapePdfHtml($filterSummary) . ' | Total Data: ' . count($rows) . '</div>
+    </div>
+    ' . $profileBlocks . '
+</body>
+</html>';
+    }
+
+    private function buildProfilePdfRow(string $label, string $value): string
+    {
+        return '<tr>'
+            . '<td class="label-cell">' . $this->escapePdfHtml($label) . '</td>'
+            . '<td class="value-cell">' . $this->escapePdfHtml($value) . '</td>'
+            . '</tr>';
+    }
+
+    private function parseUsersImportXlsx(string $path, string $originalName): array
+    {
+        $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+        if ($extension !== 'xlsx') {
+            throw new RuntimeException('Format file impor harus Excel (.xlsx).');
+        }
+
+        $spreadsheet = IOFactory::load($path);
+        $sheet = $spreadsheet->getSheetByName('Template') ?? $spreadsheet->getActiveSheet();
+        $rows = $sheet->toArray('', true, true, false);
+        if ($rows === []) {
+            return [];
+        }
+
+        $header = array_map(static function ($value): string {
+            return strtolower(trim((string) $value));
+        }, (array) array_shift($rows));
+
+        $expectedHeader = ['nama', 'nidn', 'nuptk', 'email', 'username', 'password', 'fakultas', 'program_studi', 'no_hp', 'jenis_kelamin', 'google_scholar', 'sinta', 'status'];
+        if ($header !== $expectedHeader) {
+            throw new RuntimeException('Format header file Excel tidak sesuai template impor pengguna.');
+        }
+
+        $mappedRows = [];
+        foreach ($rows as $data) {
+            $mapped = [];
+            foreach ($expectedHeader as $index => $column) {
+                $mapped[$column] = trim((string) ($data[$index] ?? ''));
+            }
+
+            $firstCell = trim((string) ($mapped['nama'] ?? ''));
+            if ($firstCell !== '' && str_starts_with($firstCell, '#')) {
+                continue;
+            }
+            if (implode('', $mapped) === '') {
+                continue;
+            }
+
+            $mappedRows[] = $mapped;
+        }
+
+        return $mappedRows;
+    }
+
+    private function buildUsersImportPreview(array $rows, string $fileName): array
+    {
+        $allowedFaculties = array_values(array_map([$this, 'normalizeFacultyLabel'], $this->getUsersImportFacultyReferences()));
+        $allowedStudyPrograms = array_values(array_map([$this, 'normalizeStudyProgramLabel'], $this->getUsersImportStudyProgramReferences()));
+        $previewRows = [];
+        $validRows = [];
+        $seenNuptk = [];
+        $seenEmail = [];
+        $seenUsername = [];
+
+        foreach ($rows as $index => $row) {
+            $normalizedRow = $this->normalizeImportRow($row);
+            $errors = $this->validateImportRow($normalizedRow, $allowedFaculties, $allowedStudyPrograms);
+
+            $nuptkKey = strtolower((string) ($normalizedRow['nuptk'] ?? ''));
+            $emailKey = strtolower((string) ($normalizedRow['email'] ?? ''));
+            $usernameKey = strtolower((string) ($normalizedRow['username'] ?? ''));
+
+            if ($nuptkKey !== '') {
+                if (isset($seenNuptk[$nuptkKey])) {
+                    $errors[] = 'NUPTK duplikat di file impor.';
+                }
+                $seenNuptk[$nuptkKey] = true;
+            }
+            if ($emailKey !== '') {
+                if (isset($seenEmail[$emailKey])) {
+                    $errors[] = 'Email duplikat di file impor.';
+                }
+                $seenEmail[$emailKey] = true;
+            }
+            if ($usernameKey !== '') {
+                if (isset($seenUsername[$usernameKey])) {
+                    $errors[] = 'Username duplikat di file impor.';
+                }
+                $seenUsername[$usernameKey] = true;
+            }
+
+            if ($nuptkKey !== '' && $this->userModel->findByNuptk((string) ($normalizedRow['nuptk'] ?? '')) !== null) {
+                $errors[] = 'NUPTK sudah terdaftar.';
+            }
+            if ($emailKey !== '' && $this->userModel->findByEmail((string) ($normalizedRow['email'] ?? '')) !== null) {
+                $errors[] = 'Email sudah terdaftar.';
+            }
+            if ($usernameKey !== '' && $this->userModel->findByUsername((string) ($normalizedRow['username'] ?? '')) !== null) {
+                $errors[] = 'Username sudah terdaftar.';
+            }
+
+            $isValid = $errors === [];
+
+            $previewRows[] = [
+                'row_number' => $index + 2,
+                'name' => (string) ($normalizedRow['name'] ?? ''),
+                'nuptk' => (string) ($normalizedRow['nuptk'] ?? ''),
+                'email' => (string) ($normalizedRow['email'] ?? ''),
+                'username' => (string) ($normalizedRow['username'] ?? ''),
+                'faculty' => (string) ($normalizedRow['faculty'] ?? ''),
+                'study_program' => (string) ($normalizedRow['study_program'] ?? ''),
+                'status' => $isValid ? 'Valid' : 'Perlu Perbaikan',
+                'errors' => $errors,
+            ];
+
+            if ($isValid) {
+                $validRows[] = $normalizedRow;
+            }
+        }
+
+        return [
+            'file_name' => $fileName,
+            'rows' => $previewRows,
+            'valid_rows' => $validRows,
+            'total_rows' => count($previewRows),
+            'valid_count' => count($validRows),
+            'invalid_count' => count($previewRows) - count($validRows),
+        ];
+    }
+
+    private function normalizeImportRow(array $row): array
+    {
+        $gender = strtolower(trim((string) ($row['jenis_kelamin'] ?? '')));
+        if (in_array($gender, ['l', 'laki', 'laki-laki', 'male'], true)) {
+            $gender = 'Laki-laki';
+        } elseif (in_array($gender, ['p', 'perempuan', 'female'], true)) {
+            $gender = 'Perempuan';
+        } else {
+            $gender = trim((string) ($row['jenis_kelamin'] ?? ''));
+        }
+
+        $phone = trim((string) ($row['no_hp'] ?? ''));
+        if (str_starts_with($phone, '+62')) {
+            $phone = '0' . substr($phone, 3);
+        } elseif (str_starts_with($phone, '62')) {
+            $phone = '0' . substr($phone, 2);
+        }
+
+        return [
+            'name' => trim((string) ($row['nama'] ?? '')),
+            'nidn' => trim((string) ($row['nidn'] ?? '')),
+            'nuptk' => trim((string) ($row['nuptk'] ?? '')),
+            'email' => strtolower(trim((string) ($row['email'] ?? ''))),
+            'username' => strtolower(trim((string) ($row['username'] ?? ''))),
+            'password' => password_hash((string) ($row['password'] ?? ''), PASSWORD_DEFAULT),
+            'plain_password' => (string) ($row['password'] ?? ''),
+            'faculty' => $this->normalizeFacultyLabel((string) ($row['fakultas'] ?? '')),
+            'study_program' => $this->normalizeStudyProgramLabel((string) ($row['program_studi'] ?? '')),
+            'unit' => $this->normalizeStudyProgramLabel((string) ($row['program_studi'] ?? '')),
+            'phone' => $phone,
+            'gender' => $gender,
+            'google_scholar_id' => trim((string) ($row['google_scholar'] ?? '')),
+            'sinta_id' => trim((string) ($row['sinta'] ?? '')),
+            'status' => trim((string) ($row['status'] ?? 'aktif')) !== '' ? trim((string) ($row['status'] ?? 'aktif')) : 'aktif',
+        ];
+    }
+
+    private function validateImportRow(array $row, array $allowedFaculties = [], array $allowedStudyPrograms = []): array
+    {
+        $errors = [];
+
+        if ((string) ($row['name'] ?? '') === '') {
+            $errors[] = 'Nama wajib diisi.';
+        }
+        if ((string) ($row['nuptk'] ?? '') === '' || !preg_match('/^\d{6,30}$/', (string) ($row['nuptk'] ?? ''))) {
+            $errors[] = 'NUPTK wajib angka 6-30 digit.';
+        }
+        if ((string) ($row['email'] ?? '') === '' || !filter_var((string) ($row['email'] ?? ''), FILTER_VALIDATE_EMAIL)) {
+            $errors[] = 'Email tidak valid.';
+        }
+        if ((string) ($row['username'] ?? '') === '' || !preg_match('/^[A-Za-z0-9_.-]{3,50}$/', (string) ($row['username'] ?? ''))) {
+            $errors[] = 'Username hanya boleh huruf, angka, titik, garis bawah, atau tanda minus.';
+        }
+        if ((string) ($row['faculty'] ?? '') === '') {
+            $errors[] = 'Fakultas wajib diisi.';
+        } elseif ($allowedFaculties !== [] && !in_array((string) ($row['faculty'] ?? ''), $allowedFaculties, true)) {
+            $errors[] = 'Fakultas harus mengikuti daftar yang ada di template sistem.';
+        }
+        if ((string) ($row['study_program'] ?? '') === '') {
+            $errors[] = 'Program studi wajib diisi.';
+        } elseif ($allowedStudyPrograms !== [] && !in_array((string) ($row['study_program'] ?? ''), $allowedStudyPrograms, true)) {
+            $errors[] = 'Program studi harus mengikuti daftar yang ada di template sistem.';
+        }
+        if ((string) ($row['phone'] ?? '') === '' || !preg_match('/^[0-9+\-\s]{8,25}$/', (string) ($row['phone'] ?? ''))) {
+            $errors[] = 'No. HP tidak valid.';
+        }
+        if (!in_array((string) ($row['gender'] ?? ''), ['Laki-laki', 'Perempuan'], true)) {
+            $errors[] = 'Jenis kelamin harus Laki-laki atau Perempuan.';
+        }
+        if (!$this->isStrongPassword((string) ($row['plain_password'] ?? ''))) {
+            $errors[] = 'Password minimal 8 karakter dan wajib mengandung huruf besar, huruf kecil, angka, serta simbol.';
+        }
+        if ((string) ($row['google_scholar_id'] ?? '') !== '' && !filter_var((string) ($row['google_scholar_id'] ?? ''), FILTER_VALIDATE_URL)) {
+            $errors[] = 'Link Google Scholar tidak valid.';
+        }
+        if ((string) ($row['sinta_id'] ?? '') !== '' && !filter_var((string) ($row['sinta_id'] ?? ''), FILTER_VALIDATE_URL)) {
+            $errors[] = 'Link Sinta tidak valid.';
+        }
+
+        return $errors;
+    }
+
+    private function normalizeFacultyLabel(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        $map = [
+            'FTP' => 'Fakultas Teknik dan Perencanaan',
+            'FAKULTAS TEKNIK DAN PERENCANAAN (FTP)' => 'Fakultas Teknik dan Perencanaan',
+            'FAKULTAS TEKNIK DAN PERENCANAAN' => 'Fakultas Teknik dan Perencanaan',
+            'FMIPA' => 'Fakultas Matematika dan Ilmu Pengetahuan Alam',
+            'FAKULTAS MATEMATIKA DAN ILMU PENGETAHUAN ALAM (FMIPA)' => 'Fakultas Matematika dan Ilmu Pengetahuan Alam',
+            'FAKULTAS MATEMATIKA DAN ILMU PENGETAHUAN ALAM' => 'Fakultas Matematika dan Ilmu Pengetahuan Alam',
+            'FKIP' => 'Fakultas Keguruan dan Ilmu Pendidikan',
+            'FAKULTAS KEGURUAN DAN ILMU PENDIDIKAN (FKIP)' => 'Fakultas Keguruan dan Ilmu Pendidikan',
+            'FAKULTAS KEGURUAN DAN ILMU PENDIDIKAN' => 'Fakultas Keguruan dan Ilmu Pendidikan',
+        ];
+
+        $upper = strtoupper($value);
+        return $map[$upper] ?? $value;
+    }
+
+    private function normalizeStudyProgramLabel(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        $map = [
+            'TEKNIK LINGKUNGAN (TL)' => 'Teknik Lingkungan',
+            'TEKNIK LINGKUNGAN' => 'Teknik Lingkungan',
+            'TL' => 'Teknik Lingkungan',
+            'TEKNIK INFORMATIKA (TI)' => 'Teknik Informatika',
+            'TEKNIK INFORMATIKA' => 'Teknik Informatika',
+            'TI' => 'Teknik Informatika',
+            'STATISTIKA (STAT)' => 'Statistika',
+            'STATISTIKA' => 'Statistika',
+            'STAT' => 'Statistika',
+            'MATEMATIKA (MAT)' => 'Matematika',
+            'MATEMATIKA' => 'Matematika',
+            'MAT' => 'Matematika',
+            'FISIKA (FIS)' => 'Fisika',
+            'FISIKA' => 'Fisika',
+            'FIS' => 'Fisika',
+            'BIOLOGI (BO)' => 'Biologi',
+            'BIOLOGI' => 'Biologi',
+            'BO' => 'Biologi',
+            'PENDIDIKAN LUAR BIASA (PLB)' => 'Pendidikan Luar Biasa',
+            'PENDIDIKAN LUAR BIASA' => 'Pendidikan Luar Biasa',
+            'PLB' => 'Pendidikan Luar Biasa',
+            'PENDIDIKAN JASMANI, KESEHATAN, DAN REKREASI (PJKR)' => 'Pendidikan Jasmani, Kesehatan, dan Rekreasi',
+            'PENDIDIKAN JASMANI, KESEHATAN, DAN REKREASI' => 'Pendidikan Jasmani, Kesehatan, dan Rekreasi',
+            'PJKR' => 'Pendidikan Jasmani, Kesehatan, dan Rekreasi',
+            'PENDIDIKAN BAHASA INGGRIS (PBI)' => 'Pendidikan Bahasa Inggris',
+            'PENDIDIKAN BAHASA INGGRIS' => 'Pendidikan Bahasa Inggris',
+            'PBI' => 'Pendidikan Bahasa Inggris',
+            'PENDIDIKAN GURU SEKOLAH DASAR (PGSD)' => 'Pendidikan Guru Sekolah Dasar',
+            'PENDIDIKAN GURU SEKOLAH DASAR' => 'Pendidikan Guru Sekolah Dasar',
+            'PGSD' => 'Pendidikan Guru Sekolah Dasar',
+        ];
+
+        $upper = strtoupper($value);
+        return $map[$upper] ?? $value;
+    }
+
+    private function getUsersImportFacultyReferences(): array
+    {
+        return [
+            'Fakultas Keguruan dan Ilmu Pendidikan',
+            'Fakultas Matematika dan Ilmu Pengetahuan Alam',
+            'Fakultas Teknik dan Perencanaan',
+        ];
+    }
+
+    private function getUsersImportStudyProgramReferences(): array
+    {
+        return [
+            'Pendidikan Bahasa Inggris',
+            'Pendidikan Guru Sekolah Dasar',
+            'Pendidikan Jasmani, Kesehatan, dan Rekreasi',
+            'Pendidikan Luar Biasa',
+            'Biologi',
+            'Fisika',
+            'Matematika',
+            'Statistika',
+            'Teknik Informatika',
+            'Teknik Lingkungan',
+        ];
+    }
+
+    private function getUsersImportAcademicRankReferences(): array
+    {
+        return [
+            'Asisten Ahli',
+            'Lektor',
+            'Lektor Kepala',
+            'Profesor',
+        ];
+    }
+
+    private function resolveUserExportStatusLabel(string $role): string
+    {
+        $role = strtolower(trim($role));
+
+        return in_array($role, ['kepala_lppm', 'admin_lppm'], true)
+            ? 'Dosen + Kepala LPPM'
+            : 'Dosen';
+    }
+
+    private function escapePdfHtml(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    }
+
+    private function formatSpreadsheetText(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        return '="' . str_replace('"', '""', $value) . '"';
+    }
+
+    private function normalizeExportPhone(string $phone): string
+    {
+        $phone = trim($phone);
+        if ($phone === '') {
+            return '';
+        }
+
+        if (str_starts_with($phone, '62')) {
+            return '0' . substr($phone, 2);
+        }
+
+        if (str_starts_with($phone, '+62')) {
+            return '0' . substr($phone, 3);
+        }
+
+        return $phone;
     }
 }

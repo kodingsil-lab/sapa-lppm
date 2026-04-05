@@ -329,28 +329,28 @@ document.addEventListener('DOMContentLoaded', function () {
     const facultyNameInput = document.getElementById('facultyNameInput');
     const facultyPrograms = {
         FTP: {
-            label: 'Fakultas Teknik dan Perencanaan (FTP)',
+            label: 'Fakultas Teknik dan Perencanaan',
             programs: [
-                'Teknik Lingkungan (TL)',
-                'Teknik Informatika (TI)',
+                'Teknik Lingkungan',
+                'Teknik Informatika',
             ],
         },
         FMIPA: {
-            label: 'Fakultas Matematika dan Ilmu Pengetahuan Alam (FMIPA)',
+            label: 'Fakultas Matematika dan Ilmu Pengetahuan Alam',
             programs: [
-                'Statistika (STAT)',
-                'Matematika (MAT)',
-                'Fisika (FIS)',
-                'Biologi (BO)',
+                'Statistika',
+                'Matematika',
+                'Fisika',
+                'Biologi',
             ],
         },
         FKIP: {
-            label: 'Fakultas Keguruan dan Ilmu Pendidikan (FKIP)',
+            label: 'Fakultas Keguruan dan Ilmu Pendidikan',
             programs: [
-                'Pendidikan Luar Biasa (PLB)',
-                'Pendidikan Jasmani, Kesehatan, dan Rekreasi (PJKR)',
-                'Pendidikan Bahasa Inggris (PBI)',
-                'Pendidikan Guru Sekolah Dasar (PGSD)',
+                'Pendidikan Luar Biasa',
+                'Pendidikan Jasmani, Kesehatan, dan Rekreasi',
+                'Pendidikan Bahasa Inggris',
+                'Pendidikan Guru Sekolah Dasar',
             ],
         },
     };

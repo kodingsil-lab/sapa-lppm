@@ -174,6 +174,9 @@ $isMasterSkema = $currentRoute === 'master-data-schemes';
 $isMasterRuangLingkup = $currentRoute === 'master-data-scopes';
 $isMasterSumberDana = $currentRoute === 'master-data-funding-sources';
 $isMasterData = $isMasterLuaran || $isMasterSkema || $isMasterRuangLingkup || $isMasterSumberDana;
+$isUserImport = $currentRoute === 'users-import';
+$isUserExport = $currentRoute === 'users-export';
+$isImportExport = $isUserImport || $isUserExport;
 $adminDashboardPath = $basePath . '/' . ($role === 'kepala_lppm' ? 'dashboard-kepala-lppm' : 'dashboard-admin');
 $isAdminOnly = $normalizedRole === 'admin';
 $isKepalaLppm = $normalizedRole === 'kepala_lppm';
@@ -240,6 +243,27 @@ $isKepalaLppm = $normalizedRole === 'kepala_lppm';
                         <li>
                             <a href="<?= htmlspecialchars($basePath . '/master-data/sumber-dana', ENT_QUOTES, 'UTF-8'); ?>" class="sidebar-sublink <?= $isMasterSumberDana ? 'active' : ''; ?>">
                                 Sumber Dana
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <li class="has-submenu <?= $isImportExport ? 'open' : ''; ?>">
+                    <button type="button" class="sidebar-link sidebar-toggle <?= $isImportExport ? 'active' : ''; ?>" data-sidebar-toggle>
+                        <span class="sidebar-link-left">
+                            <span class="sidebar-icon-wrap"><i class="bi bi-arrow-left-right"></i></span>
+                            <span class="sidebar-link-text">Import &amp; Ekspor</span>
+                        </span>
+                        <i class="bi bi-chevron-down sidebar-arrow"></i>
+                    </button>
+                    <ul class="sidebar-submenu" <?= $isImportExport ? 'style="display:block;"' : ''; ?>>
+                        <li>
+                            <a href="<?= htmlspecialchars($basePath . '/pengguna/impor', ENT_QUOTES, 'UTF-8'); ?>" class="sidebar-sublink <?= $isUserImport ? 'active' : ''; ?>">
+                                Impor Pengguna
+                            </a>
+                        </li>
+                        <li>
+                            <a href="<?= htmlspecialchars($basePath . '/pengguna/ekspor', ENT_QUOTES, 'UTF-8'); ?>" class="sidebar-sublink <?= $isUserExport ? 'active' : ''; ?>">
+                                Ekspor Pengguna
                             </a>
                         </li>
                     </ul>

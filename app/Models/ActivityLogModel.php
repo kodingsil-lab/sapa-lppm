@@ -7,6 +7,62 @@ require_once __DIR__ . '/../Helpers/DatabaseHelper.php';
 
 class ActivityLogModel extends BaseModel
 {
+    public function getRecentExports(string $module = 'pengguna', int $limit = 10): array
+    {
+        $pdo = db_pdo();
+        $stmt = $pdo->prepare(
+            'SELECT
+                al.id,
+                al.user_id,
+                al.action,
+                al.module,
+                al.data_id,
+                al.created_at,
+                u.name AS user_name,
+                u.role AS user_role
+             FROM activity_logs al
+             LEFT JOIN users u ON u.id = al.user_id
+             WHERE al.module = :module
+               AND al.action LIKE :action_pattern
+             ORDER BY al.id DESC
+             LIMIT :limit_rows'
+        );
+        $stmt->bindValue(':module', $module);
+        $stmt->bindValue(':action_pattern', 'Ekspor pengguna%', PDO::PARAM_STR);
+        $stmt->bindValue(':limit_rows', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll() ?: [];
+    }
+
+    public function getRecentImports(string $module = 'pengguna', int $limit = 10): array
+    {
+        $pdo = db_pdo();
+        $stmt = $pdo->prepare(
+            'SELECT
+                al.id,
+                al.user_id,
+                al.action,
+                al.module,
+                al.data_id,
+                al.created_at,
+                u.name AS user_name,
+                u.role AS user_role
+             FROM activity_logs al
+             LEFT JOIN users u ON u.id = al.user_id
+             WHERE al.module = :module
+               AND al.action LIKE :action_pattern
+             ORDER BY al.id DESC
+             LIMIT :limit_rows'
+        );
+        $stmt->bindValue(':module', $module);
+        $stmt->bindValue(':action_pattern', 'Impor pengguna%', PDO::PARAM_STR);
+        $stmt->bindValue(':limit_rows', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll() ?: [];
+    }
+
     public function getAllWithUser(int $limit = 1000): array
     {
         $pdo = db_pdo();

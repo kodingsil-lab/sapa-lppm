@@ -174,9 +174,9 @@ $startInEditMode = !empty($errorMessage) || !$isProfileComplete;
                             ?>
                             <select id="profileFacultySelect" class="form-select profile-input" <?= $hasColumn('faculty') ? 'required' : 'disabled data-permanent-disabled=\"1\"'; ?>>
                                 <option value="">-- Pilih Fakultas --</option>
-                                <option value="FTP">Fakultas Teknik dan Perencanaan (FTP)</option>
-                                <option value="FMIPA">Fakultas Matematika dan Ilmu Pengetahuan Alam (FMIPA)</option>
-                                <option value="FKIP">Fakultas Keguruan dan Ilmu Pendidikan (FKIP)</option>
+                                <option value="FTP">Fakultas Teknik dan Perencanaan</option>
+                                <option value="FMIPA">Fakultas Matematika dan Ilmu Pengetahuan Alam</option>
+                                <option value="FKIP">Fakultas Keguruan dan Ilmu Pendidikan</option>
                             </select>
                             <input type="hidden" id="profileFacultyNameInput" name="faculty" value="<?= htmlspecialchars($facultyValue, ENT_QUOTES, 'UTF-8'); ?>">
                             <?php if (!$hasColumn('faculty')): ?><small class="field-helper">Kolom belum tersedia di database.</small><?php endif; ?>
@@ -281,16 +281,16 @@ $startInEditMode = !empty($errorMessage) || !$isProfileComplete;
         const savedProgram = unitInput ? unitInput.value : '';
         const facultyPrograms = {
             FTP: {
-                label: 'Fakultas Teknik dan Perencanaan (FTP)',
-                programs: ['Teknik Lingkungan (TL)', 'Teknik Informatika (TI)'],
+                label: 'Fakultas Teknik dan Perencanaan',
+                programs: ['Teknik Lingkungan', 'Teknik Informatika'],
             },
             FMIPA: {
-                label: 'Fakultas Matematika dan Ilmu Pengetahuan Alam (FMIPA)',
-                programs: ['Statistika (STAT)', 'Matematika (MAT)', 'Fisika (FIS)', 'Biologi (BO)'],
+                label: 'Fakultas Matematika dan Ilmu Pengetahuan Alam',
+                programs: ['Statistika', 'Matematika', 'Fisika', 'Biologi'],
             },
             FKIP: {
-                label: 'Fakultas Keguruan dan Ilmu Pendidikan (FKIP)',
-                programs: ['Pendidikan Luar Biasa (PLB)', 'Pendidikan Jasmani, Kesehatan, dan Rekreasi (PJKR)', 'Pendidikan Bahasa Inggris (PBI)', 'Pendidikan Guru Sekolah Dasar (PGSD)'],
+                label: 'Fakultas Keguruan dan Ilmu Pendidikan',
+                programs: ['Pendidikan Luar Biasa', 'Pendidikan Jasmani, Kesehatan, dan Rekreasi', 'Pendidikan Bahasa Inggris', 'Pendidikan Guru Sekolah Dasar'],
             },
         };
 

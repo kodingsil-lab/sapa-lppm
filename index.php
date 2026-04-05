@@ -145,6 +145,13 @@ $prettyPathByRoute = [
     'users-dosen-delete' => 'pengguna/dosen/hapus',
     'users-dosen-bulk-delete' => 'pengguna/dosen/hapus-terpilih',
     'users-change-role' => 'pengguna/ganti-role',
+    'users-import' => 'pengguna/impor',
+    'users-import-template' => 'pengguna/impor/template',
+    'users-import-preview' => 'pengguna/impor/preview',
+    'users-import-store' => 'pengguna/impor/simpan',
+    'users-export' => 'pengguna/ekspor',
+    'users-export-download' => 'pengguna/ekspor/unduh',
+    'users-export-download-pdf' => 'pengguna/ekspor/pdf',
     'logs' => 'log-aktivitas',
     'logs-bulk-delete' => 'log-aktivitas/hapus',
     'master-data-outputs' => 'master-data/luaran',
@@ -573,6 +580,34 @@ if (!$hasRouteQuery) {
 
     if ($relativePath === 'pengguna/ganti-role') {
         $_GET['route'] = 'users-change-role';
+    }
+
+    if ($relativePath === 'pengguna/impor') {
+        $_GET['route'] = 'users-import';
+    }
+
+    if ($relativePath === 'pengguna/impor/template') {
+        $_GET['route'] = 'users-import-template';
+    }
+
+    if ($relativePath === 'pengguna/impor/preview') {
+        $_GET['route'] = 'users-import-preview';
+    }
+
+    if ($relativePath === 'pengguna/impor/simpan') {
+        $_GET['route'] = 'users-import-store';
+    }
+
+    if ($relativePath === 'pengguna/ekspor') {
+        $_GET['route'] = 'users-export';
+    }
+
+    if ($relativePath === 'pengguna/ekspor/unduh') {
+        $_GET['route'] = 'users-export-download';
+    }
+
+    if ($relativePath === 'pengguna/ekspor/pdf') {
+        $_GET['route'] = 'users-export-download-pdf';
     }
 
     if ($relativePath === 'log-aktivitas') {

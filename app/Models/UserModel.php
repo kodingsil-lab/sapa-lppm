@@ -8,6 +8,75 @@ require_once __DIR__ . '/../Helpers/LetterHelper.php';
 class UserModel extends BaseModel
 {
     private ?array $usersColumns = null;
+    private const FACULTY_ALIASES = [
+        'Fakultas Keguruan dan Ilmu Pendidikan' => [
+            'Fakultas Keguruan dan Ilmu Pendidikan',
+            'Fakultas Keguruan dan Ilmu Pendidikan (FKIP)',
+            'FKIP',
+        ],
+        'Fakultas Matematika dan Ilmu Pengetahuan Alam' => [
+            'Fakultas Matematika dan Ilmu Pengetahuan Alam',
+            'Fakultas Matematika dan Ilmu Pengetahuan Alam (FMIPA)',
+            'FMIPA',
+        ],
+        'Fakultas Teknik dan Perencanaan' => [
+            'Fakultas Teknik dan Perencanaan',
+            'Fakultas Teknik dan Perencanaan (FTP)',
+            'FTP',
+        ],
+    ];
+    private const STUDY_PROGRAM_ALIASES = [
+        'Pendidikan Bahasa Inggris' => [
+            'Pendidikan Bahasa Inggris',
+            'Pendidikan Bahasa Inggris (PBI)',
+            'PBI',
+        ],
+        'Pendidikan Guru Sekolah Dasar' => [
+            'Pendidikan Guru Sekolah Dasar',
+            'Pendidikan Guru Sekolah Dasar (PGSD)',
+            'PGSD',
+        ],
+        'Pendidikan Jasmani, Kesehatan, dan Rekreasi' => [
+            'Pendidikan Jasmani, Kesehatan, dan Rekreasi',
+            'Pendidikan Jasmani, Kesehatan, dan Rekreasi (PJKR)',
+            'PJKR',
+        ],
+        'Pendidikan Luar Biasa' => [
+            'Pendidikan Luar Biasa',
+            'Pendidikan Luar Biasa (PLB)',
+            'PLB',
+        ],
+        'Biologi' => [
+            'Biologi',
+            'Biologi (BO)',
+            'BO',
+        ],
+        'Fisika' => [
+            'Fisika',
+            'Fisika (FIS)',
+            'FIS',
+        ],
+        'Matematika' => [
+            'Matematika',
+            'Matematika (MAT)',
+            'MAT',
+        ],
+        'Statistika' => [
+            'Statistika',
+            'Statistika (STAT)',
+            'STAT',
+        ],
+        'Teknik Informatika' => [
+            'Teknik Informatika',
+            'Teknik Informatika (TI)',
+            'TI',
+        ],
+        'Teknik Lingkungan' => [
+            'Teknik Lingkungan',
+            'Teknik Lingkungan (TL)',
+            'TL',
+        ],
+    ];
 
     public function findByLogin(string $login): ?array
     {
@@ -76,7 +145,7 @@ class UserModel extends BaseModel
         $stmt->execute([':id' => $id]);
         $data = $stmt->fetch();
 
-        return $data !== false ? $data : null;
+        return $data !== false ? $this->normalizeUserDisplayValues($data) : null;
     }
 
     public function getUsersColumns(): array
@@ -253,21 +322,39 @@ class UserModel extends BaseModel
 
         $faculty = trim((string) ($filters['faculty'] ?? ''));
         if ($faculty !== '') {
-            $where[] = 'faculty = :faculty';
-            $params[':faculty'] = $faculty;
+            $aliases = $this->getFacultyAliases($faculty);
+            $placeholders = [];
+            foreach ($aliases as $index => $alias) {
+                $placeholder = ':faculty_' . $index;
+                $placeholders[] = $placeholder;
+                $params[$placeholder] = $alias;
+            }
+            if ($placeholders !== []) {
+                $where[] = 'faculty IN (' . implode(', ', $placeholders) . ')';
+            }
         }
 
         $studyProgram = trim((string) ($filters['study_program'] ?? ''));
         if ($studyProgram !== '') {
-            $where[] = 'COALESCE(NULLIF(study_program, \'\'), unit) = :study_program';
-            $params[':study_program'] = $studyProgram;
+            $aliases = $this->getStudyProgramAliases($studyProgram);
+            $placeholders = [];
+            foreach ($aliases as $index => $alias) {
+                $placeholder = ':study_program_' . $index;
+                $placeholders[] = $placeholder;
+                $params[$placeholder] = $alias;
+            }
+            if ($placeholders !== []) {
+                $where[] = 'COALESCE(NULLIF(study_program, \'\'), unit) IN (' . implode(', ', $placeholders) . ')';
+            }
         }
 
          $sql = "SELECT
                  id,
                  role,
                  name,
+                 nidn,
                  nuptk,
+                 gender,
                  faculty,
                 study_program,
                 unit,
@@ -283,7 +370,7 @@ class UserModel extends BaseModel
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
 
-        return $stmt->fetchAll() ?: [];
+        return array_map([$this, 'normalizeUserDisplayValues'], $stmt->fetchAll() ?: []);
     }
 
     public function getDosenNameSuggestions(?int $excludeId = null): array
@@ -329,22 +416,55 @@ class UserModel extends BaseModel
              ORDER BY study_program_label ASC"
         )->fetchAll(PDO::FETCH_COLUMN) ?: [];
 
+        $normalizedFaculties = [];
+        foreach ($faculties as $faculty) {
+            $label = $this->normalizeFacultyLabel((string) $faculty);
+            if ($label !== '') {
+                $normalizedFaculties[$label] = $label;
+            }
+        }
+
+        $normalizedStudyPrograms = [];
+        foreach ($studyPrograms as $studyProgram) {
+            $label = $this->normalizeStudyProgramLabel((string) $studyProgram);
+            if ($label !== '') {
+                $normalizedStudyPrograms[$label] = $label;
+            }
+        }
+
+        ksort($normalizedFaculties, SORT_NATURAL | SORT_FLAG_CASE);
+        ksort($normalizedStudyPrograms, SORT_NATURAL | SORT_FLAG_CASE);
+
         return [
-            'faculties' => array_values(array_map('strval', $faculties)),
-            'study_programs' => array_values(array_map('strval', $studyPrograms)),
+            'faculties' => array_values($normalizedFaculties),
+            'study_programs' => array_values($normalizedStudyPrograms),
         ];
     }
 
     public function getDosenSummary(): array
     {
         $pdo = db_pdo();
-        $totalDosen = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role IN ('dosen', 'kepala_lppm', 'admin_lppm')")->fetchColumn();
-        $totalProdi = (int) $pdo->query("SELECT COUNT(DISTINCT COALESCE(NULLIF(study_program, ''), NULLIF(unit, ''))) FROM users WHERE role IN ('dosen', 'kepala_lppm', 'admin_lppm')")->fetchColumn();
-        $totalWithNuptk = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role IN ('dosen', 'kepala_lppm', 'admin_lppm') AND COALESCE(NULLIF(nuptk, ''), '') <> ''")->fetchColumn();
+        $rows = $pdo->query(
+            "SELECT nuptk, study_program, unit
+             FROM users
+             WHERE role IN ('dosen', 'kepala_lppm', 'admin_lppm')"
+        )->fetchAll() ?: [];
+        $totalDosen = count($rows);
+        $studyPrograms = [];
+        $totalWithNuptk = 0;
+        foreach ($rows as $row) {
+            $studyProgram = $this->normalizeStudyProgramLabel((string) ($row['study_program'] ?? $row['unit'] ?? ''));
+            if ($studyProgram !== '') {
+                $studyPrograms[$studyProgram] = true;
+            }
+            if (trim((string) ($row['nuptk'] ?? '')) !== '') {
+                $totalWithNuptk++;
+            }
+        }
 
         return [
             'total_dosen' => $totalDosen,
-            'total_prodi' => $totalProdi,
+            'total_prodi' => count($studyPrograms),
             'total_with_nuptk' => $totalWithNuptk,
         ];
     }
@@ -353,7 +473,18 @@ class UserModel extends BaseModel
     {
         $pdo = db_pdo();
         $totalDosen = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'dosen'")->fetchColumn();
-        $totalProdi = (int) $pdo->query("SELECT COUNT(DISTINCT COALESCE(NULLIF(study_program, ''), NULLIF(unit, ''))) FROM users WHERE role = 'dosen'")->fetchColumn();
+        $prodiRows = $pdo->query(
+            "SELECT study_program, unit
+             FROM users
+             WHERE role = 'dosen'"
+        )->fetchAll() ?: [];
+        $studyPrograms = [];
+        foreach ($prodiRows as $row) {
+            $studyProgram = $this->normalizeStudyProgramLabel((string) ($row['study_program'] ?? $row['unit'] ?? ''));
+            if ($studyProgram !== '') {
+                $studyPrograms[$studyProgram] = true;
+            }
+        }
         $totalAdmin = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'admin'")->fetchColumn();
         $totalKepala = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'kepala_lppm'")->fetchColumn();
         $dosenLengkap = (int) $pdo->query(
@@ -372,7 +503,7 @@ class UserModel extends BaseModel
 
         return [
             'total_dosen' => $totalDosen,
-            'total_prodi' => $totalProdi,
+            'total_prodi' => count($studyPrograms),
             'total_admin' => $totalAdmin,
             'total_kepala' => $totalKepala,
             'dosen_lengkap' => $dosenLengkap,
@@ -386,7 +517,7 @@ class UserModel extends BaseModel
         $stmt->execute([':id' => $id]);
         $data = $stmt->fetch();
 
-        return $data !== false ? $data : null;
+        return $data !== false ? $this->normalizeUserDisplayValues($data) : null;
     }
 
     public function isDosenProfileComplete(array $user): bool
@@ -701,6 +832,8 @@ class UserModel extends BaseModel
             'unit' => $this->normalizeUserColumnValue('unit', $data['unit'] ?? $data['study_program'] ?? ''),
             'phone' => $this->normalizeUserColumnValue('phone', $data['phone'] ?? ''),
             'gender' => $this->normalizeUserColumnValue('gender', $data['gender'] ?? ''),
+            'google_scholar_id' => $this->normalizeUserColumnValue('google_scholar_id', $data['google_scholar_id'] ?? ''),
+            'sinta_id' => $this->normalizeUserColumnValue('sinta_id', $data['sinta_id'] ?? ''),
             'status' => $this->normalizeUserColumnValue('status', $data['status'] ?? 'aktif'),
         ];
 
@@ -812,7 +945,82 @@ class UserModel extends BaseModel
             return $normalized === '' ? 'aktif' : $normalized;
         }
 
+        if ($column === 'faculty') {
+            return $this->normalizeFacultyLabel($stringValue);
+        }
+
+        if ($column === 'study_program' || $column === 'unit') {
+            return $this->normalizeStudyProgramLabel($stringValue);
+        }
+
         return $stringValue;
+    }
+
+    private function normalizeUserDisplayValues(array $row): array
+    {
+        if (array_key_exists('faculty', $row)) {
+            $row['faculty'] = $this->normalizeFacultyLabel((string) ($row['faculty'] ?? ''));
+        }
+
+        if (array_key_exists('study_program', $row)) {
+            $row['study_program'] = $this->normalizeStudyProgramLabel((string) ($row['study_program'] ?? ''));
+        }
+
+        if (array_key_exists('unit', $row)) {
+            $row['unit'] = $this->normalizeStudyProgramLabel((string) ($row['unit'] ?? ''));
+        }
+
+        return $row;
+    }
+
+    private function normalizeFacultyLabel(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        $lookup = strtoupper($value);
+        foreach (self::FACULTY_ALIASES as $canonical => $aliases) {
+            foreach ($aliases as $alias) {
+                if ($lookup === strtoupper($alias)) {
+                    return $canonical;
+                }
+            }
+        }
+
+        return $value;
+    }
+
+    private function normalizeStudyProgramLabel(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        $lookup = strtoupper($value);
+        foreach (self::STUDY_PROGRAM_ALIASES as $canonical => $aliases) {
+            foreach ($aliases as $alias) {
+                if ($lookup === strtoupper($alias)) {
+                    return $canonical;
+                }
+            }
+        }
+
+        return $value;
+    }
+
+    private function getFacultyAliases(string $value): array
+    {
+        $canonical = $this->normalizeFacultyLabel($value);
+        return self::FACULTY_ALIASES[$canonical] ?? [$canonical];
+    }
+
+    private function getStudyProgramAliases(string $value): array
+    {
+        $canonical = $this->normalizeStudyProgramLabel($value);
+        return self::STUDY_PROGRAM_ALIASES[$canonical] ?? [$canonical];
     }
 }
 

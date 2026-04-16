@@ -127,6 +127,46 @@ $authFallbackCssVersion = is_file($authFallbackCssPath) ? (string) filemtime($au
             box-shadow: 0 0 0 0.2rem rgba(43, 89, 181, 0.15);
         }
 
+        .auth-password-group {
+            position: relative;
+        }
+
+        .auth-password-group .form-control {
+            padding-right: 58px;
+        }
+
+        .auth-password-toggle {
+            position: absolute;
+            top: 50%;
+            right: 12px;
+            transform: translateY(-50%);
+            border: 1px solid #d6dee8;
+            background: #f8fbff;
+            color: #64748b;
+            padding: 0;
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .auth-password-toggle:hover {
+            color: #2b59b5;
+            border-color: #b8cae3;
+            background: #eef4ff;
+        }
+
+        .auth-password-toggle:focus-visible {
+            outline: none;
+            color: #2b59b5;
+            border-color: #2b59b5;
+            box-shadow: 0 0 0 0.2rem rgba(43, 89, 181, 0.12);
+        }
+
         .form-check-input:checked {
             background-color: #2b59b5;
             border-color: #2b59b5;
@@ -227,6 +267,17 @@ $authFallbackCssVersion = is_file($authFallbackCssPath) ? (string) filemtime($au
             .form-control {
                 padding: 10px 12px;
                 font-size: 0.92rem;
+            }
+
+            .auth-password-group .form-control {
+                padding-right: 60px;
+            }
+
+            .auth-password-toggle {
+                width: 38px;
+                height: 38px;
+                right: 10px;
+                border-radius: 12px;
             }
 
             .btn-signin {
@@ -332,7 +383,12 @@ $authFallbackCssVersion = is_file($authFallbackCssPath) ? (string) filemtime($au
 
                 <div class="mb-3">
                     <label for="passwordField" class="form-label">Kata Sandi</label>
-                    <input type="password" name="password" id="passwordField" class="form-control" placeholder="Masukkan kata sandi" required>
+                    <div class="auth-password-group">
+                        <input type="password" name="password" id="passwordField" class="form-control" placeholder="Masukkan kata sandi" required>
+                        <button type="button" class="auth-password-toggle" data-password-toggle="passwordField" aria-label="Tampilkan kata sandi" aria-pressed="false">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="d-flex align-items-center justify-content-between mb-4">
@@ -354,5 +410,26 @@ $authFallbackCssVersion = is_file($authFallbackCssPath) ? (string) filemtime($au
             </div>
         </div>
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('[data-password-toggle]').forEach(function (button) {
+                var input = document.getElementById(button.getAttribute('data-password-toggle'));
+                if (!input) {
+                    return;
+                }
+
+                var icon = button.querySelector('i');
+                button.addEventListener('click', function () {
+                    var isHidden = input.type === 'password';
+                    input.type = isHidden ? 'text' : 'password';
+                    button.setAttribute('aria-pressed', isHidden ? 'true' : 'false');
+                    button.setAttribute('aria-label', isHidden ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi');
+                    if (icon) {
+                        icon.className = isHidden ? 'bi bi-eye-slash' : 'bi bi-eye';
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>

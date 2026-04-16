@@ -33,7 +33,7 @@
         .task-table td:nth-child(1) { width: 8%; text-align: center; }
         .task-table td:nth-child(3) { width: 18%; }
         .sig { width: 300px; margin-left: auto; text-align: left; margin-top: 18px; }
-        .sig img { max-width: 170px; max-height: 70px; margin: 4px 0; }
+        .sig img { max-width: 205px; max-height: 88px; margin: 4px 0; }
         .bold { font-weight: 700; }
         .sig-name { text-decoration: underline; }
     </style>

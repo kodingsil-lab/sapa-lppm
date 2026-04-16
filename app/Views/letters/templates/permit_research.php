@@ -31,7 +31,7 @@
         .data td { padding: 0; vertical-align: top; }
         .dlabel { width: 190px; }
         .sig { width: 280px; margin-left: auto; text-align: left; margin-top: 18px; }
-        .sig img { max-width: 170px; max-height: 70px; margin: 4px 0; }
+        .sig img { max-width: 205px; max-height: 88px; margin: 4px 0; }
         .bold { font-weight: bold; }
         .sig-name { text-decoration: underline; }
     </style>

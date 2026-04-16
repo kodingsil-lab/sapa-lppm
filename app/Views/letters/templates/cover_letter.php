@@ -7,7 +7,7 @@
         body { font-family: "Bookman Old Style", serif; font-size: 12pt; color: #000; }
         .line { border-bottom: 2px solid #000; margin-bottom: 12px; }
         .sig { width: 280px; margin-left: auto; margin-top: 20px; }
-        .sig img { max-width: 170px; max-height: 70px; margin: 6px 0; }
+        .sig img { max-width: 205px; max-height: 88px; margin: 6px 0; }
         .bold { font-weight: bold; }
     </style>
 </head>

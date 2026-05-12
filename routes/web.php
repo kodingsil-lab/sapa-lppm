@@ -41,6 +41,7 @@ return [
     'contracts' => ['controller' => 'ContractController', 'method' => 'index', 'roles' => ['admin']],
     'settings-letter-number' => ['controller' => 'SettingController', 'method' => 'letterNumber', 'roles' => ['admin', 'kepala_lppm']],
     'settings-letter-number-save' => ['controller' => 'SettingController', 'method' => 'letterNumber', 'roles' => ['admin', 'kepala_lppm']],
+    'settings-letter-number-delete' => ['controller' => 'SettingController', 'method' => 'deleteLetterNumber', 'roles' => ['admin', 'kepala_lppm'], 'methods' => ['POST']],
     'settings-contract' => ['controller' => 'SettingController', 'method' => 'contract', 'roles' => ['admin', 'kepala_lppm']],
     'settings-contract-detail' => ['controller' => 'SettingController', 'method' => 'contractDetail', 'roles' => ['admin', 'kepala_lppm']],
     'settings-contract-save' => ['controller' => 'SettingController', 'method' => 'contract', 'roles' => ['admin', 'kepala_lppm']],

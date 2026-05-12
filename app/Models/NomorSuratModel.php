@@ -112,4 +112,64 @@ class NomorSuratModel extends BaseModel
 
         return $stmt->fetchAll() ?: [];
     }
+
+    public function findById(int $id): ?array
+    {
+        $pdo = db_pdo();
+        $stmt = $pdo->prepare(
+            'SELECT id, jenis_surat, skema, nomor_urut, tahun, created_at
+             FROM nomor_surat
+             WHERE id = :id
+             LIMIT 1'
+        );
+        $stmt->execute([':id' => $id]);
+        $row = $stmt->fetch();
+
+        return $row !== false ? $row : null;
+    }
+
+    public function countLettersUsingNumber(string $letterNumber): int
+    {
+        $normalized = trim($letterNumber);
+        if ($normalized === '') {
+            return 0;
+        }
+
+        $pdo = db_pdo();
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM letters WHERE letter_number = :letter_number');
+        $stmt->execute([':letter_number' => $normalized]);
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    public function countLettersUsingGeneratedNumber(string $letterNumber, int $nomorUrut, int $tahun): int
+    {
+        $normalized = trim($letterNumber);
+        $numberPrefix = sprintf('%03d', $nomorUrut) . '/';
+        $yearSuffix = '/' . (string) $tahun;
+
+        $pdo = db_pdo();
+        $stmt = $pdo->prepare(
+            'SELECT COUNT(*)
+             FROM letters
+             WHERE letter_number = :letter_number
+                OR (letter_number LIKE :number_prefix AND letter_number LIKE :year_suffix)'
+        );
+        $stmt->execute([
+            ':letter_number' => $normalized,
+            ':number_prefix' => $numberPrefix . '%',
+            ':year_suffix' => '%' . $yearSuffix,
+        ]);
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    public function deleteById(int $id): bool
+    {
+        $pdo = db_pdo();
+        $stmt = $pdo->prepare('DELETE FROM nomor_surat WHERE id = :id');
+        $stmt->execute([':id' => $id]);
+
+        return $stmt->rowCount() > 0;
+    }
 }

@@ -6,6 +6,7 @@ require_once __DIR__ . '/BaseController.php';
 require_once __DIR__ . '/../Models/NomorSuratSettingModel.php';
 require_once __DIR__ . '/../Models/NomorSuratModel.php';
 require_once __DIR__ . '/../Models/ContractSettingModel.php';
+require_once __DIR__ . '/../Helpers/ActivityLogHelper.php';
 
 class SettingController extends BaseController
 {
@@ -50,11 +51,12 @@ class SettingController extends BaseController
             $activeTab = 'K';
         }
         $settings = $this->settingModel->getAll();
+        $settingsByJenis = $this->buildLetterNumberSettingsByJenis($settings);
         $overview = $this->nomorSuratModel->getOverviewByYear($year);
         $recentByJenis = [
-            'K' => $this->nomorSuratModel->getRecentByJenis('K', $year, 20),
-            'I' => $this->nomorSuratModel->getRecentByJenis('I', $year, 20),
-            'T' => $this->nomorSuratModel->getRecentByJenis('T', $year, 20),
+            'K' => $this->withLetterNumberUsageCounts($this->nomorSuratModel->getRecentByJenis('K', $year, 20), $settingsByJenis['K']),
+            'I' => $this->withLetterNumberUsageCounts($this->nomorSuratModel->getRecentByJenis('I', $year, 20), $settingsByJenis['I']),
+            'T' => $this->withLetterNumberUsageCounts($this->nomorSuratModel->getRecentByJenis('T', $year, 20), $settingsByJenis['T']),
         ];
 
         $this->render('settings/letter_number', [
@@ -66,6 +68,69 @@ class SettingController extends BaseController
             'activeTab' => $activeTab,
             'successMessage' => $_GET['success'] ?? null,
             'errorMessage' => $_GET['error'] ?? null,
+        ]);
+    }
+
+    private function buildLetterNumberSettingsByJenis(array $settings): array
+    {
+        $defaultTemplate = $this->settingModel->getDefaultFormatTemplate();
+        $result = [
+            'K' => ['jenis_surat' => 'K', 'format_template' => $defaultTemplate],
+            'I' => ['jenis_surat' => 'I', 'format_template' => $defaultTemplate],
+            'T' => ['jenis_surat' => 'T', 'format_template' => $defaultTemplate],
+        ];
+
+        foreach ($settings as $setting) {
+            $code = strtoupper((string) ($setting['jenis_surat'] ?? ''));
+            if (isset($result[$code])) {
+                $result[$code] = $setting;
+            }
+        }
+
+        return $result;
+    }
+
+    private function withLetterNumberUsageCounts(array $rows, array $setting): array
+    {
+        foreach ($rows as $index => $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $letterNumber = $this->buildFullLetterNumber($row, $setting);
+            $rows[$index]['letter_usage_count'] = $this->nomorSuratModel->countLettersUsingGeneratedNumber(
+                $letterNumber,
+                (int) ($row['nomor_urut'] ?? 0),
+                (int) ($row['tahun'] ?? 0)
+            );
+        }
+
+        return $rows;
+    }
+
+    private function buildFullLetterNumber(array $row, array $setting): string
+    {
+        $template = trim((string) ($setting['format_template'] ?? ''));
+        if ($template === '') {
+            $template = $this->settingModel->getDefaultFormatTemplate();
+        }
+
+        $createdAtRaw = trim((string) ($row['created_at'] ?? ''));
+        $timestamp = $createdAtRaw !== '' ? strtotime($createdAtRaw) : false;
+        $month = $timestamp !== false ? (int) date('n', $timestamp) : (int) date('n');
+
+        try {
+            $romanMonth = monthToRoman($month);
+        } catch (Throwable $e) {
+            $romanMonth = monthToRoman((int) date('n'));
+        }
+
+        return strtr($template, [
+            '{nomor_urut}' => sprintf('%03d', (int) ($row['nomor_urut'] ?? 0)),
+            '{jenis_surat}' => strtoupper(trim((string) ($row['jenis_surat'] ?? ($setting['jenis_surat'] ?? '')))),
+            '{skema}' => trim((string) ($row['skema'] ?? '')),
+            '{bulan_romawi}' => $romanMonth,
+            '{tahun}' => (string) ((int) ($row['tahun'] ?? date('Y'))),
         ]);
     }
 
@@ -144,6 +209,77 @@ class SettingController extends BaseController
             $this->redirectToPath('pengaturan/nomor-surat', [
                 'tahun' => $tahun,
                 'tab' => $activeTab,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function deleteLetterNumber(): void
+    {
+        if (!$this->canManageSettings()) {
+            $this->redirectToPath($this->adminDashboardPath());
+        }
+
+        try {
+            $id = (int) ($_POST['id'] ?? 0);
+            $tahun = (int) ($_POST['tahun'] ?? date('Y'));
+            $activeTab = strtoupper(trim((string) ($_POST['active_tab'] ?? 'K')));
+
+            $deleteValidation = $this->validatePayload(
+                [
+                    'id' => (string) $id,
+                    'tahun' => (string) $tahun,
+                    'tab' => $activeTab,
+                ],
+                [
+                    'id' => 'required|integer|greater_than[0]',
+                    'tahun' => 'required|integer|greater_than_equal_to[2000]|less_than_equal_to[2100]',
+                    'tab' => 'required|in_list[K,I,T]',
+                ]
+            );
+            if (!$deleteValidation['valid']) {
+                throw new InvalidArgumentException($this->firstValidationError($deleteValidation['errors'], 'Parameter hapus tidak valid.'));
+            }
+
+            $row = $this->nomorSuratModel->findById($id);
+            if ($row === null) {
+                throw new RuntimeException('Riwayat nomor surat tidak ditemukan.');
+            }
+
+            $jenis = strtoupper((string) ($row['jenis_surat'] ?? ''));
+            if ($jenis !== $activeTab || (int) ($row['tahun'] ?? 0) !== $tahun) {
+                throw new RuntimeException('Riwayat nomor surat tidak sesuai dengan tab atau tahun aktif.');
+            }
+
+            $setting = $this->settingModel->findByJenis($jenis) ?? ['jenis_surat' => $jenis, 'format_template' => $this->settingModel->getDefaultFormatTemplate()];
+            $letterNumber = $this->buildFullLetterNumber($row, $setting);
+            if ($this->nomorSuratModel->countLettersUsingGeneratedNumber($letterNumber, (int) ($row['nomor_urut'] ?? 0), (int) ($row['tahun'] ?? 0)) > 0) {
+                throw new RuntimeException('Nomor surat tidak dapat dihapus karena masih melekat pada surat yang sudah terbit.');
+            }
+
+            if (!$this->nomorSuratModel->deleteById($id)) {
+                throw new RuntimeException('Gagal menghapus riwayat nomor surat.');
+            }
+
+            logActivity('pengaturan', 'Menghapus riwayat nomor surat: ' . $letterNumber, $id);
+            $this->redirectToPath('pengaturan/nomor-surat', [
+                'tahun' => $tahun,
+                'tab' => $activeTab,
+                'success' => 'Riwayat nomor surat berhasil dihapus.',
+            ]);
+        } catch (Throwable $e) {
+            $fallbackYear = (int) ($_POST['tahun'] ?? date('Y'));
+            if ($fallbackYear < 2000 || $fallbackYear > 2100) {
+                $fallbackYear = (int) date('Y');
+            }
+            $fallbackTab = strtoupper(trim((string) ($_POST['active_tab'] ?? 'K')));
+            if (!in_array($fallbackTab, ['K', 'I', 'T'], true)) {
+                $fallbackTab = 'K';
+            }
+
+            $this->redirectToPath('pengaturan/nomor-surat', [
+                'tahun' => $fallbackYear,
+                'tab' => $fallbackTab,
                 'error' => $e->getMessage(),
             ]);
         }

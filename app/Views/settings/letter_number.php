@@ -155,6 +155,33 @@ $buildFullLetterNumber = static function (array $row, array $setting, string $de
     width: 100%;
 }
 
+.letter-number-page .letter-number-delete-form {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+}
+
+.letter-number-page .letter-number-delete-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 8px;
+    line-height: 1;
+    min-width: 28px;
+    min-height: 28px;
+    font-size: 0.82rem;
+}
+
+.letter-number-page .letter-number-delete-btn .bi {
+    display: block;
+    line-height: 1;
+    margin: 0;
+}
+
 @media (max-width: 1199.98px) {
     .letter-number-page .letter-filter-form {
         grid-template-columns: 1fr 1fr;
@@ -350,22 +377,41 @@ $buildFullLetterNumber = static function (array $row, array $setting, string $de
                                         <th>Skema</th>
                                         <th>Dibuat</th>
                                         <th>Nomor Urut</th>
+                                        <th>Aksi</th>
                                     </tr>
                                     </thead>
                                     <tbody>
                                     <?php if (empty($rows)): ?>
                                         <tr>
-                                            <td colspan="5" class="text-center text-muted py-3">Belum ada nomor surat terbit untuk jenis ini pada tahun <?= (int) $selectedYear; ?>.</td>
+                                            <td colspan="6" class="text-center text-muted py-3">Belum ada nomor surat terbit untuk jenis ini pada tahun <?= (int) $selectedYear; ?>.</td>
                                         </tr>
                                     <?php else: ?>
                                         <?php foreach ($rows as $i => $row): ?>
                                             <?php $fullLetterNumber = $buildFullLetterNumber($row, $setting, $defaultTemplate); ?>
+                                            <?php $isNumberUsed = ((int) ($row['letter_usage_count'] ?? 0)) > 0; ?>
                                             <tr>
                                                 <td><?= (int) $i + 1; ?></td>
                                                 <td class="full-number-cell"><?= htmlspecialchars($fullLetterNumber, ENT_QUOTES, 'UTF-8'); ?></td>
                                                 <td><?= htmlspecialchars((string) ($row['skema'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
                                                 <td><?= htmlspecialchars((string) ($row['created_at'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?></td>
                                                 <td><?= str_pad((string) (int) ($row['nomor_urut'] ?? 0), 3, '0', STR_PAD_LEFT); ?></td>
+                                                <td>
+                                                    <?php if ($isNumberUsed): ?>
+                                                        <button type="button" class="btn btn-sm btn-light-soft letter-number-delete-btn" disabled title="Nomor masih melekat pada surat terbit">
+                                                            <i class="bi bi-lock"></i>
+                                                        </button>
+                                                    <?php else: ?>
+                                                        <form method="post" action="<?= htmlspecialchars($basePath . '/pengaturan/nomor-surat/hapus', ENT_QUOTES, 'UTF-8'); ?>" class="letter-number-delete-form js-letter-number-delete-form" data-letter-number="<?= htmlspecialchars($fullLetterNumber, ENT_QUOTES, 'UTF-8'); ?>">
+                                                            <input type="hidden" name="id" value="<?= (int) ($row['id'] ?? 0); ?>">
+                                                            <input type="hidden" name="tahun" value="<?= (int) $selectedYear; ?>">
+                                                            <input type="hidden" name="active_tab" value="<?= htmlspecialchars($code, ENT_QUOTES, 'UTF-8'); ?>">
+                                                            <input type="hidden" name="letter_number" value="<?= htmlspecialchars($fullLetterNumber, ENT_QUOTES, 'UTF-8'); ?>">
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger letter-number-delete-btn" title="Hapus nomor surat">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    <?php endif; ?>
+                                                </td>
                                             </tr>
                                         <?php endforeach; ?>
                                     <?php endif; ?>
@@ -379,3 +425,60 @@ $buildFullLetterNumber = static function (array $row, array $setting, string $de
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="hapusNomorSuratModal" tabindex="-1" aria-labelledby="hapusNomorSuratModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius:14px;">
+            <div class="modal-header" style="background:#f6f9ff;border-bottom:1px solid #e5edf8;">
+                <h5 class="modal-title" id="hapusNomorSuratModalLabel" style="color:#123c6b;">Konfirmasi Hapus Nomor Surat</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">Anda yakin ingin menghapus riwayat nomor surat berikut?</p>
+                <div class="fw-semibold" id="letterNumberDeleteValue" style="color:#123c6b;">-</div>
+                <p class="text-muted mb-0 mt-2" style="font-size:13px;">Nomor hanya bisa dihapus jika sudah tidak melekat pada surat yang tersimpan.</p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light-soft" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-danger" id="letterNumberDeleteProceedBtn">Hapus Nomor</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const forms = document.querySelectorAll('.js-letter-number-delete-form');
+    const modalEl = document.getElementById('hapusNomorSuratModal');
+    const proceedBtn = document.getElementById('letterNumberDeleteProceedBtn');
+    const numberValue = document.getElementById('letterNumberDeleteValue');
+    let activeForm = null;
+
+    if (!modalEl || !proceedBtn || forms.length === 0 || typeof bootstrap === 'undefined') {
+        return;
+    }
+
+    const deleteModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+    forms.forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            activeForm = form;
+            if (numberValue) {
+                numberValue.textContent = form.getAttribute('data-letter-number') || '-';
+            }
+            deleteModal.show();
+        });
+    });
+
+    proceedBtn.addEventListener('click', function () {
+        if (activeForm) {
+            activeForm.submit();
+        }
+    });
+
+    modalEl.addEventListener('hidden.bs.modal', function () {
+        activeForm = null;
+    });
+});
+</script>

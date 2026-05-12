@@ -177,6 +177,7 @@ $prettyPathByRoute = [
     'users-profile' => 'profil-admin',
     'users-upload-signature' => 'profil-admin/tanda-tangan',
     'settings-letter-number' => 'pengaturan/nomor-surat',
+    'settings-letter-number-delete' => 'pengaturan/nomor-surat/hapus',
     'settings-contract' => 'pengaturan/kontrak',
     'settings-contract-detail' => 'pengaturan/kontrak/detail',
     'settings-contract-delete' => 'pengaturan/kontrak/hapus',
@@ -714,6 +715,10 @@ if (!$hasRouteQuery) {
         $_GET['route'] = 'settings-letter-number';
     }
 
+    if ($relativePath === 'pengaturan/nomor-surat/hapus') {
+        $_GET['route'] = 'settings-letter-number-delete';
+    }
+
     if ($relativePath === 'pengaturan/kontrak') {
         $_GET['route'] = 'settings-contract';
     }
@@ -795,6 +800,10 @@ if (in_array($requestMethod, ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
         'settings-contract-delete' => [
             'max' => (int) appEnv('RATE_LIMIT_SETTINGS_CONTRACT_DELETE_MAX', 30, __DIR__),
             'window' => (int) appEnv('RATE_LIMIT_SETTINGS_CONTRACT_DELETE_WINDOW', 300, __DIR__),
+        ],
+        'settings-letter-number-delete' => [
+            'max' => (int) appEnv('RATE_LIMIT_SETTINGS_LETTER_NUMBER_DELETE_MAX', 40, __DIR__),
+            'window' => (int) appEnv('RATE_LIMIT_SETTINGS_LETTER_NUMBER_DELETE_WINDOW', 300, __DIR__),
         ],
         'logs-bulk-delete' => ['max' => 10, 'window' => 300],
     ];
